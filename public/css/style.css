@@ -408,8 +408,10 @@ section + section { border-top: 1px solid var(--border); }
 .gift-card:hover { box-shadow: var(--shadow-hover); transform: translateY(-2px); text-decoration: none; color: var(--text); }
 
 .gift-card.reserved {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: default;
+  filter: grayscale(1);
+  pointer-events: none;
 }
 
 .gift-card.reserved:hover { transform: none; box-shadow: var(--shadow); }

@@ -43,11 +43,10 @@
   <!-- FILTER TABS -->
   <div class="filter-tabs" id="filter-tabs">
     <button class="filter-tab active" data-cat="Todos">Todos</button>
-    <button class="filter-tab" data-cat="Itens que já tenho">Itens que já tenho</button>
-    <button class="filter-tab" data-cat="Kits Temáticos">Kits Temáticos</button>
-    <button class="filter-tab" data-cat="Conjuntos Divididos">Conjuntos Divididos</button>
-    <button class="filter-tab" data-cat="Itens Individuais">Itens Individuais</button>
-    <button class="filter-tab" data-cat="Itens Especiais">Itens Especiais</button>
+    <button class="filter-tab" data-cat="Cama">🛏 Cama</button>
+    <button class="filter-tab" data-cat="Mesa">🍽 Mesa</button>
+    <button class="filter-tab" data-cat="Cozinha">🍳 Cozinha</button>
+    <button class="filter-tab" data-cat="Organização">🫙 Organização</button>
   </div>
 
   <!-- GIFT GRID -->
@@ -100,22 +99,21 @@
         return;
       }
 
-      grid.innerHTML = filtered.map(item => `
-        <a href="/item.html?id=${item.id}"
-           class="gift-card${item.reserved ? ' reserved' : ''}"
-           ${item.reserved ? 'tabindex="-1" aria-disabled="true"' : ''}>
-          ${item.image
-            ? `<div class="gift-img-wrap"><img src="${App.escapeHtml(item.image)}" alt="${App.escapeHtml(item.name)}" class="gift-img" loading="lazy" /></div>`
-            : `<div class="gift-emoji">${item.emoji}</div>`}
+      grid.innerHTML = filtered.map(item => {
+        const media = item.image
+          ? `<div class="gift-img-wrap"><img src="${App.escapeHtml(item.image)}" alt="${App.escapeHtml(item.name)}" class="gift-img" loading="lazy" /></div>`
+          : `<div class="gift-emoji">${item.emoji}</div>`;
+        const inner = `
+          ${media}
           <div class="gift-name">${App.escapeHtml(item.name)}</div>
           <div class="gift-price">${App.formatPrice(item.price)}</div>
-          <div>
-            <span class="badge ${item.reserved ? 'badge-reserved' : 'badge-available'}">
-              ${item.reserved ? 'Reservado' : 'Disponível'}
-            </span>
-          </div>
-        </a>
-      `).join('');
+          <div><span class="badge ${item.reserved ? 'badge-reserved' : 'badge-available'}">${item.reserved ? 'Reservado' : 'Disponível'}</span></div>
+        `;
+        if (item.reserved) {
+          return `<div class="gift-card reserved" aria-label="${App.escapeHtml(item.name)} — Reservado">${inner}</div>`;
+        }
+        return `<a href="/item.html?id=${item.id}" class="gift-card">${inner}</a>`;
+      }).join('');
     }
 
     document.addEventListener('DOMContentLoaded', () => {
