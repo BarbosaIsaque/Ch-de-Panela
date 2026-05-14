@@ -5,6 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Lista de Presentes — Chá de Panelas</title>
   <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    .gift-img-wrap {
+      width: 80px; height: 80px;
+      margin: 0 auto 12px;
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--border);
+    }
+    .gift-img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+  </style>
 </head>
 <body>
 
@@ -23,7 +37,7 @@
   <!-- PAGE HEADER -->
   <div class="page-header">
     <h1>Lista de Presentes</h1>
-    <p class="subtitle" id="stats-subtitle">80 presentes · Meta R$ 10.200</p>
+    <p class="subtitle">Escolha o presente que tocar no seu coração 💝</p>
   </div>
 
   <!-- FILTER TABS -->
@@ -70,18 +84,9 @@
         if (!res.ok) throw new Error(res.error || 'Erro');
         allItems = res.data;
         renderGrid();
-        updateStats();
       } catch (e) {
         grid.innerHTML = `<p style="color:var(--red);padding:40px 0;grid-column:1/-1;text-align:center">Erro ao carregar lista. Recarregue a página.</p>`;
       }
-    }
-
-    function updateStats() {
-      const available = allItems.filter(i => !i.reserved).length;
-      const reserved = allItems.filter(i => i.reserved).length;
-      const total = allItems.reduce((s, i) => s + i.price, 0);
-      document.getElementById('stats-subtitle').textContent =
-        `${allItems.length} presentes · ${reserved} reservados · ${available} disponíveis · Meta ${App.formatPrice(total)}`;
     }
 
     function renderGrid() {
@@ -99,7 +104,9 @@
         <a href="/item.html?id=${item.id}"
            class="gift-card${item.reserved ? ' reserved' : ''}"
            ${item.reserved ? 'tabindex="-1" aria-disabled="true"' : ''}>
-          <div class="gift-emoji">${item.emoji}</div>
+          ${item.image
+            ? `<div class="gift-img-wrap"><img src="${App.escapeHtml(item.image)}" alt="${App.escapeHtml(item.name)}" class="gift-img" loading="lazy" /></div>`
+            : `<div class="gift-emoji">${item.emoji}</div>`}
           <div class="gift-name">${App.escapeHtml(item.name)}</div>
           <div class="gift-price">${App.formatPrice(item.price)}</div>
           <div>

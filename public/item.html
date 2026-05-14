@@ -6,81 +6,112 @@
   <title>Presente — Chá de Panelas</title>
   <link rel="stylesheet" href="/css/style.css" />
   <style>
-    /* ── PIX MODAL ───────────────────────────────────────────── */
-    .pix-modal-backdrop {
+    .item-img-wrap {
+      width: 160px; height: 160px;
+      margin: 0 auto 20px;
+      border-radius: 16px;
+      overflow: hidden;
+      background: var(--border);
+    }
+    .item-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    /* ── PAYMENT MODAL ───────────────────────────────────────── */
+    .pay-modal-backdrop {
       display: none;
       position: fixed; inset: 0;
-      background: rgba(61,43,31,.5);
+      background: rgba(61,43,31,.55);
       z-index: 200;
       align-items: center;
       justify-content: center;
       padding: 16px;
     }
-    .pix-modal-backdrop.open { display: flex; }
+    .pay-modal-backdrop.open { display: flex; }
 
-    .pix-modal {
+    .pay-modal {
       background: var(--cream);
       border-radius: 16px;
-      padding: 32px 28px;
-      max-width: 420px;
+      padding: 28px 24px 24px;
+      max-width: 440px;
       width: 100%;
-      box-shadow: 0 12px 48px rgba(0,0,0,.2);
+      box-shadow: 0 12px 48px rgba(0,0,0,.22);
       position: relative;
-      max-height: 90vh;
+      max-height: 92vh;
       overflow-y: auto;
     }
-    .pix-modal-close {
-      position: absolute; top: 16px; right: 16px;
+    .pay-modal-close {
+      position: absolute; top: 14px; right: 16px;
       background: none; border: none; font-size: 1.4rem;
       cursor: pointer; color: var(--text-muted); line-height: 1;
+      padding: 4px;
     }
-    .pix-modal-title {
+    .pay-modal-item {
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .pay-modal-item-name {
       font-family: 'Playfair Display', serif;
-      font-size: 1.3rem;
-      margin-bottom: 4px;
-      text-align: center;
+      font-size: 1.1rem;
+      margin-bottom: 2px;
     }
-    .pix-modal-subtitle {
-      text-align: center;
-      color: var(--text-muted);
-      font-size: 0.88rem;
-      margin-bottom: 20px;
-    }
-    .pix-modal-price {
-      text-align: center;
-      font-size: 2rem;
+    .pay-modal-price {
+      font-size: 1.7rem;
       font-weight: 700;
       color: var(--gold-dark);
-      margin-bottom: 20px;
       font-family: 'Playfair Display', serif;
     }
-    .pix-qr-wrap { text-align: center; margin: 0 0 16px; }
-    .pix-qr-wrap img { border-radius: 12px; max-width: 220px; width: 100%; margin: 0 auto; }
+
+    /* tabs */
+    .pay-tabs {
+      display: flex; gap: 6px; margin-bottom: 20px;
+    }
+    .pay-tab {
+      flex: 1; padding: 10px 6px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      background: var(--card-bg);
+      cursor: pointer;
+      font-family: inherit; font-size: 0.8rem; font-weight: 700;
+      color: var(--text-muted);
+      transition: all .2s; text-align: center;
+    }
+    .pay-tab .tab-icon { font-size: 1.3rem; display: block; margin-bottom: 3px; }
+    .pay-tab.active { border-color: var(--gold); color: var(--gold-dark); background: #fffbf4; }
+    .pay-panel { display: none; }
+    .pay-panel.active { display: block; }
+
+    /* PIX */
+    .pix-qr-wrap { text-align: center; margin: 0 0 14px; }
+    .pix-qr-wrap img { border-radius: 12px; max-width: 200px; width: 100%; margin: 0 auto; }
     .pix-copy-row {
       display: flex; align-items: center; gap: 8px;
       background: #f5f0e8; border: 1px dashed var(--gold);
-      border-radius: 8px; padding: 10px 14px; margin-bottom: 12px;
+      border-radius: 8px; padding: 10px 12px; margin-bottom: 10px;
     }
     .pix-copy-key {
-      flex: 1; font-size: 0.75rem; word-break: break-all; color: var(--text);
-      font-family: monospace;
+      flex: 1; font-size: 0.72rem; word-break: break-all;
+      color: var(--text); font-family: monospace;
     }
     .btn-copy {
-      flex-shrink: 0; padding: 6px 14px; font-size: 0.8rem;
+      flex-shrink: 0; padding: 6px 12px; font-size: 0.78rem;
       background: var(--gold); color: #fff; border: none;
       border-radius: 6px; cursor: pointer; font-weight: 700;
-      font-family: inherit; transition: background .2s;
-      white-space: nowrap;
+      font-family: inherit; transition: background .2s; white-space: nowrap;
     }
     .btn-copy:hover { background: var(--gold-dark); }
-    .pix-modal-hint {
-      font-size: 0.78rem; color: var(--text-muted);
+    .pay-hint {
+      font-size: 0.76rem; color: var(--text-muted);
       text-align: center; line-height: 1.5;
     }
-    .pix-modal-loading {
-      text-align: center; padding: 40px 0;
-      color: var(--text-muted); font-size: 0.9rem;
-    }
+    .pay-loading { text-align: center; padding: 32px 0; color: var(--text-muted); font-size: 0.88rem; }
+
+    /* TRANSFERÊNCIA */
+    .bank-table { width: 100%; border-collapse: collapse; margin: 0 0 10px; }
+    .bank-table td { padding: 9px 6px; border-bottom: 1px solid var(--border); font-size: 0.88rem; }
+    .bank-table td:first-child { color: var(--text-muted); font-weight: 600; width: 42%; }
+
+    /* CARTÃO */
+    .card-panel-inner { text-align: center; padding: 8px 0 4px; }
+    .card-big-icon { font-size: 2.5rem; margin-bottom: 10px; }
   </style>
 </head>
 <body>
@@ -101,20 +132,20 @@
     <a href="/lista.html" class="back-link">← Lista de Presentes</a>
 
     <div class="item-detail-card" id="item-card">
-      <div class="skeleton" style="height:100px;width:100px;border-radius:50%;margin:0 auto 20px;"></div>
-      <div class="skeleton" style="height:20px;width:60%;margin:0 auto 12px;"></div>
-      <div class="skeleton" style="height:32px;width:80%;margin:0 auto 12px;"></div>
-      <div class="skeleton" style="height:16px;width:90%;margin:0 auto 20px;"></div>
-      <div class="skeleton" style="height:40px;width:120px;margin:0 auto;"></div>
+      <div class="skeleton" style="height:160px;width:160px;border-radius:16px;margin:0 auto 20px;"></div>
+      <div class="skeleton" style="height:18px;width:55%;margin:0 auto 10px;"></div>
+      <div class="skeleton" style="height:30px;width:80%;margin:0 auto 10px;"></div>
+      <div class="skeleton" style="height:14px;width:90%;margin:0 auto 18px;"></div>
+      <div class="skeleton" style="height:48px;border-radius:8px;margin-bottom:10px;"></div>
     </div>
   </div>
 
-  <!-- PIX MODAL -->
-  <div class="pix-modal-backdrop" id="pix-backdrop" onclick="closePix(event)">
-    <div class="pix-modal" id="pix-modal">
-      <button class="pix-modal-close" onclick="closePix(null, true)">✕</button>
-      <div id="pix-modal-inner">
-        <div class="pix-modal-loading">Gerando código PIX…</div>
+  <!-- PAYMENT MODAL -->
+  <div class="pay-modal-backdrop" id="pay-backdrop" onclick="closePayment(event)">
+    <div class="pay-modal">
+      <button class="pay-modal-close" onclick="closePayment(null, true)">✕</button>
+      <div id="pay-modal-inner">
+        <div class="pay-loading">Carregando…</div>
       </div>
     </div>
   </div>
@@ -129,14 +160,11 @@
   <script>
     const params = new URLSearchParams(window.location.search);
     const itemId = parseInt(params.get('id'), 10);
+    let _pixPayload = '';
 
     async function loadItem() {
       const card = document.getElementById('item-card');
-
-      if (!itemId) {
-        card.innerHTML = `<p style="color:var(--red)">Item não encontrado.</p>`;
-        return;
-      }
+      if (!itemId) { card.innerHTML = `<p style="color:var(--red)">Item não encontrado.</p>`; return; }
 
       try {
         const [itemRes, meRes] = await Promise.all([
@@ -144,14 +172,10 @@
           App.apiFetch('/api/auth/me'),
         ]);
 
-        if (!itemRes.ok) {
-          card.innerHTML = `<p style="color:var(--red)">Item não encontrado.</p>`;
-          return;
-        }
+        if (!itemRes.ok) { card.innerHTML = `<p style="color:var(--red)">Item não encontrado.</p>`; return; }
 
         const item = itemRes.data;
         const isLoggedIn = meRes.ok;
-
         document.title = `${item.name} — Chá de Panelas`;
 
         let inCart = false;
@@ -160,63 +184,48 @@
           if (cartRes.ok) inCart = cartRes.data.some(ci => ci.id === item.id);
         }
 
-        let actionHtml = '';
+        const mediaHtml = item.image
+          ? `<div class="item-img-wrap"><img src="${App.escapeHtml(item.image)}" alt="${App.escapeHtml(item.name)}" class="item-img" /></div>`
+          : `<div class="item-emoji-large">${item.emoji}</div>`;
 
+        let actionHtml = '';
         if (item.reserved) {
           actionHtml = `
             <div class="reserved-msg">
               Este presente já foi reservado 💝<br>
-              <small style="opacity:0.8;margin-top:4px;display:block">Que tal escolher outro da lista?</small>
+              <small style="opacity:.8;margin-top:4px;display:block">Que tal escolher outro da lista?</small>
             </div>
             <a href="/lista.html" class="btn btn-outline" style="margin-top:16px;">Ver outros presentes</a>
           `;
         } else {
           actionHtml = `
-            <button class="btn btn-primary btn-full" id="pix-btn" style="margin-top:20px;">
-              💝 Pagar via PIX
+            <button class="btn btn-primary btn-full" id="pay-btn" style="margin-top:20px;">
+              💝 Quero presentear
             </button>
           `;
           if (inCart) {
-            actionHtml += `
-              <a href="/carrinho.html" class="btn btn-outline btn-full" style="margin-top:10px;">
-                ✓ No carrinho — Ver carrinho
-              </a>
-            `;
+            actionHtml += `<a href="/carrinho.html" class="btn btn-outline btn-full" style="margin-top:10px;">✓ No carrinho — Ver carrinho</a>`;
           } else if (isLoggedIn) {
-            actionHtml += `
-              <button class="btn btn-outline btn-full" id="add-cart-btn" style="margin-top:10px;">
-                🛒 Adicionar ao Carrinho
-              </button>
-            `;
+            actionHtml += `<button class="btn btn-outline btn-full" id="add-cart-btn" style="margin-top:10px;">🛒 Adicionar ao Carrinho</button>`;
           }
         }
 
         card.innerHTML = `
-          <div class="item-emoji-large">${item.emoji}</div>
+          ${mediaHtml}
           <p class="item-category">${App.escapeHtml(item.cat)}</p>
           <h1>${App.escapeHtml(item.name)}</h1>
           <p class="item-desc">${App.escapeHtml(item.desc)}</p>
           <div class="item-price-large">${App.formatPrice(item.price)}</div>
-          <div>
-            <span class="badge ${item.reserved ? 'badge-reserved' : 'badge-available'}">
-              ${item.reserved ? 'Reservado' : 'Disponível'}
-            </span>
-          </div>
+          <div><span class="badge ${item.reserved ? 'badge-reserved' : 'badge-available'}">${item.reserved ? 'Reservado' : 'Disponível'}</span></div>
           ${actionHtml}
         `;
 
-        // PIX button
-        const pixBtn = document.getElementById('pix-btn');
-        if (pixBtn) {
-          pixBtn.addEventListener('click', () => openPix(item));
-        }
+        document.getElementById('pay-btn')?.addEventListener('click', () => openPayment(item));
 
-        // Cart button
         const addBtn = document.getElementById('add-cart-btn');
         if (addBtn) {
           addBtn.addEventListener('click', async () => {
-            addBtn.disabled = true;
-            addBtn.textContent = 'Adicionando…';
+            addBtn.disabled = true; addBtn.textContent = 'Adicionando…';
             const res = await App.apiFetch('/api/cart', { method: 'POST', body: { itemId: item.id } });
             if (res.ok) {
               App.showToast('Presente adicionado ao carrinho! 🎁', 'success');
@@ -224,71 +233,111 @@
               setTimeout(() => loadItem(), 600);
             } else {
               App.showToast(res.error || 'Erro ao adicionar', 'error');
-              addBtn.disabled = false;
-              addBtn.textContent = '🛒 Adicionar ao Carrinho';
+              addBtn.disabled = false; addBtn.textContent = '🛒 Adicionar ao Carrinho';
             }
           });
         }
-
       } catch {
         card.innerHTML = `<p style="color:var(--red)">Erro ao carregar. Recarregue a página.</p>`;
       }
     }
 
-    async function openPix(item) {
-      document.getElementById('pix-backdrop').classList.add('open');
-      document.getElementById('pix-modal-inner').innerHTML =
-        `<div class="pix-modal-loading">Gerando código PIX…</div>`;
+    async function openPayment(item) {
+      document.getElementById('pay-backdrop').classList.add('open');
       document.body.style.overflow = 'hidden';
+      document.getElementById('pay-modal-inner').innerHTML = `<div class="pay-loading">Carregando opções de pagamento…</div>`;
 
-      const res = await App.apiFetch(`/api/pix-quick?itemId=${item.id}`);
+      const [pixRes, cfgRes] = await Promise.all([
+        App.apiFetch(`/api/pix-quick?itemId=${item.id}`),
+        App.apiFetch('/api/config'),
+      ]);
 
-      if (!res.ok) {
-        document.getElementById('pix-modal-inner').innerHTML = `
-          <p style="text-align:center;color:var(--red);padding:24px 0;">${App.escapeHtml(res.error || 'Erro ao gerar PIX')}</p>
-          <p style="text-align:center;font-size:0.85rem;color:var(--text-muted);">Entre em contato com os noivos.</p>
+      const bank = cfgRes.ok ? (cfgRes.data.bank || {}) : {};
+      const cardEnabled = cfgRes.ok ? cfgRes.data.cardEnabled : false;
+      const price = App.formatPrice(item.price);
+
+      // PIX panel content
+      let pixContent = '';
+      if (pixRes.ok) {
+        _pixPayload = pixRes.data.payload;
+        pixContent = `
+          <div class="pix-qr-wrap"><img src="${pixRes.data.qrCode}" alt="QR Code PIX" /></div>
+          <div class="pix-copy-row">
+            <span class="pix-copy-key">${App.escapeHtml(pixRes.data.payload)}</span>
+            <button class="btn-copy" onclick="copyPix()">Copiar</button>
+          </div>
+          <p class="pay-hint">Abra seu banco → Pix → Pix Copia e Cola<br>O valor já estará preenchido 🧾</p>
         `;
-        return;
+      } else {
+        pixContent = `<p class="pay-hint" style="padding:20px 0;">${App.escapeHtml(pixRes.error || 'Erro ao gerar PIX')}</p>`;
       }
 
-      const d = res.data;
-      document.getElementById('pix-modal-inner').innerHTML = `
-        <div class="pix-modal-title">💝 Pagar via PIX</div>
-        <div class="pix-modal-subtitle">${App.escapeHtml(item.emoji)} ${App.escapeHtml(item.name)}</div>
-        <div class="pix-modal-price">${App.formatPrice(d.valor)}</div>
-        <div class="pix-qr-wrap">
-          <img src="${d.qrCode}" alt="QR Code PIX" />
+      // Transfer panel content
+      const transferContent = bank.banco ? `
+        <table class="bank-table">
+          <tr><td>Banco</td><td><strong>${App.escapeHtml(bank.banco)}</strong></td></tr>
+          <tr><td>Agência</td><td>${App.escapeHtml(bank.agencia)}</td></tr>
+          <tr><td>Conta</td><td>${App.escapeHtml(bank.conta)}</td></tr>
+          <tr><td>Tipo</td><td>${App.escapeHtml(bank.tipo)}</td></tr>
+          <tr><td>Titular</td><td>${App.escapeHtml(bank.titular)}</td></tr>
+          ${bank.cpf ? `<tr><td>CPF</td><td>${App.escapeHtml(bank.cpf)}</td></tr>` : ''}
+          <tr><td>Valor</td><td><strong style="color:var(--gold-dark)">${price}</strong></td></tr>
+        </table>
+        <p class="pay-hint">Guarde o comprovante de transferência 💕</p>
+      ` : `<p class="pay-hint" style="padding:20px 0;">Dados bancários não disponíveis. Entre em contato com os noivos.</p>`;
+
+      // Card panel content
+      const cardContent = cardEnabled ? `
+        <div class="card-panel-inner">
+          <div class="card-big-icon">💳</div>
+          <p style="color:var(--text-muted);margin-bottom:16px;font-size:0.88rem;">Você será redirecionada para o ambiente seguro de pagamento.</p>
+          <a href="/carrinho.html" class="btn btn-primary" style="width:100%;display:block;">Ir para o carrinho e pagar com cartão</a>
+          <p style="font-size:0.72rem;color:var(--text-muted);margin-top:8px;">É necessário criar uma conta para pagar com cartão 🔒</p>
         </div>
-        <div class="pix-copy-row">
-          <span class="pix-copy-key" id="pix-payload-text">${App.escapeHtml(d.payload)}</span>
-          <button class="btn-copy" onclick="copyPixCode()">Copiar</button>
+      ` : `
+        <div class="card-panel-inner">
+          <div class="card-big-icon">💳</div>
+          <p style="color:var(--text-muted);margin-bottom:12px;font-size:0.88rem;">Estamos configurando o pagamento por cartão. Em breve disponível!</p>
+          <p style="font-weight:700;font-size:0.85rem;">Enquanto isso, use PIX ou Transferência — mais rápido e sem taxas 🙏</p>
         </div>
-        <p class="pix-modal-hint">
-          Abra o app do seu banco → Pix → Pix Copia e Cola<br>
-          O valor já estará preenchido automaticamente 🧾
-        </p>
       `;
-      window._pixPayload = d.payload;
+
+      document.getElementById('pay-modal-inner').innerHTML = `
+        <div class="pay-modal-item">
+          <div class="pay-modal-item-name">${item.emoji} ${App.escapeHtml(item.name)}</div>
+          <div class="pay-modal-price">${price}</div>
+        </div>
+        <div class="pay-tabs">
+          <button class="pay-tab active" onclick="showTab('pix',this)"><span class="tab-icon">📱</span>PIX</button>
+          <button class="pay-tab" onclick="showTab('transfer',this)"><span class="tab-icon">🏦</span>Transferência</button>
+          <button class="pay-tab" onclick="showTab('card',this)"><span class="tab-icon">💳</span>Cartão</button>
+        </div>
+        <div class="pay-panel active" id="modal-panel-pix">${pixContent}</div>
+        <div class="pay-panel" id="modal-panel-transfer">${transferContent}</div>
+        <div class="pay-panel" id="modal-panel-card">${cardContent}</div>
+      `;
     }
 
-    function closePix(event, force) {
-      if (force || event.target === document.getElementById('pix-backdrop')) {
-        document.getElementById('pix-backdrop').classList.remove('open');
+    function showTab(tab, btn) {
+      document.querySelectorAll('.pay-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.pay-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('modal-panel-' + tab).classList.add('active');
+    }
+
+    function closePayment(event, force) {
+      if (force || event?.target === document.getElementById('pay-backdrop')) {
+        document.getElementById('pay-backdrop').classList.remove('open');
         document.body.style.overflow = '';
       }
     }
 
-    function copyPixCode() {
-      const payload = window._pixPayload || document.getElementById('pix-payload-text')?.textContent;
-      if (!payload) return;
-      navigator.clipboard.writeText(payload).then(() => App.showToast('Código PIX copiado!', 'success'));
+    function copyPix() {
+      navigator.clipboard.writeText(_pixPayload).then(() => App.showToast('Código PIX copiado!', 'success'));
     }
 
     document.addEventListener('DOMContentLoaded', loadItem);
-
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape') closePix(null, true);
-    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closePayment(null, true); });
   </script>
 </body>
 </html>
