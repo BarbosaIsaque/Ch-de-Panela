@@ -10,18 +10,18 @@ const CONFIG = {
   endereco: 'Rua Engenheiro Francelino Mota, 417',
 
   // ── PIX ──────────────────────────────────────────────────────
-  pixKey: 'COLOQUE_SUA_CHAVE_PIX_AQUI',   // CPF, e-mail, telefone ou chave aleatória
+  pixKey: '42c0a4b3-7a3d-42c4-980e-9ff9aa658e6c',
   pixNome: 'Ana Clara',                    // Nome que aparece no QR Code (máx 25 caracteres)
   pixCidade: 'Sao Paulo',                  // Sem acentos (padrão EMV)
 
   // ── TRANSFERÊNCIA BANCÁRIA ────────────────────────────────────
   bank: {
-    banco: 'COLOQUE_SEU_BANCO',            // Ex: Nubank, Itaú, Bradesco
-    agencia: '0000',
-    conta: '00000-0',
+    banco: 'Safra (422)',
+    agencia: '0288',
+    conta: '24153-1',
     tipo: 'Conta Corrente',
     titular: 'Ana Clara',
-    cpf: '',                               // Opcional — deixe vazio se preferir não exibir
+    cpf: '',
   },
 
   // ── PAGAR.ME ──────────────────────────────────────────────────
@@ -32,7 +32,7 @@ const CONFIG = {
     webhookSecret: '', // Dashboard Pagar.me → Webhooks → Criar webhook → copie o secret
   },
 
-  adminPassword: 'admin2026',              // MUDE ISSO antes de publicar
+  adminPassword: 'Isana2026@',
   port: process.env.PORT || 3000,
 };
 // ============================================================
@@ -523,6 +523,33 @@ app.get('/api/pix-qr', requireAuth, async (req, res) => {
     return ok(res, { qrCode: qrDataUrl, payload, total: order.total, source: 'static' });
   } catch (e) {
     return fail(res, 500, 'Erro ao gerar QR Code: ' + e.message);
+  }
+});
+
+// ── PIX RÁPIDO (público, por item) ───────────────────────────
+
+app.get('/api/pix-quick', async (req, res) => {
+  const itemId = parseInt(req.query.itemId, 10);
+  if (!itemId) return fail(res, 400, 'itemId obrigatório');
+
+  const item = ITEMS.find(i => i.id === itemId);
+  if (!item) return fail(res, 404, 'Item não encontrado');
+
+  try {
+    const pix = createStaticPix({
+      merchantName: CONFIG.pixNome,
+      merchantCity: CONFIG.pixCidade,
+      pixKey: CONFIG.pixKey,
+      infoAdicional: 'Cha de Panelas',
+      txid: `ISANA${String(itemId).padStart(9, '0')}`,
+      valor: item.price,
+    });
+    if (pixHasError(pix)) throw new Error('Payload PIX inválido');
+    const payload = pix.toBRCode();
+    const qrDataUrl = await QRCode.toDataURL(payload, { width: 260, margin: 1, color: { dark: '#3D2B1F', light: '#FDFBF8' } });
+    return ok(res, { qrCode: qrDataUrl, payload, valor: item.price, item: { id: item.id, name: item.name, emoji: item.emoji } });
+  } catch (e) {
+    return fail(res, 500, 'Erro ao gerar PIX: ' + e.message);
   }
 });
 

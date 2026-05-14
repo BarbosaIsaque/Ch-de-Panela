@@ -5,6 +5,83 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Presente — Chá de Panelas</title>
   <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    /* ── PIX MODAL ───────────────────────────────────────────── */
+    .pix-modal-backdrop {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(61,43,31,.5);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .pix-modal-backdrop.open { display: flex; }
+
+    .pix-modal {
+      background: var(--cream);
+      border-radius: 16px;
+      padding: 32px 28px;
+      max-width: 420px;
+      width: 100%;
+      box-shadow: 0 12px 48px rgba(0,0,0,.2);
+      position: relative;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .pix-modal-close {
+      position: absolute; top: 16px; right: 16px;
+      background: none; border: none; font-size: 1.4rem;
+      cursor: pointer; color: var(--text-muted); line-height: 1;
+    }
+    .pix-modal-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.3rem;
+      margin-bottom: 4px;
+      text-align: center;
+    }
+    .pix-modal-subtitle {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      margin-bottom: 20px;
+    }
+    .pix-modal-price {
+      text-align: center;
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--gold-dark);
+      margin-bottom: 20px;
+      font-family: 'Playfair Display', serif;
+    }
+    .pix-qr-wrap { text-align: center; margin: 0 0 16px; }
+    .pix-qr-wrap img { border-radius: 12px; max-width: 220px; width: 100%; margin: 0 auto; }
+    .pix-copy-row {
+      display: flex; align-items: center; gap: 8px;
+      background: #f5f0e8; border: 1px dashed var(--gold);
+      border-radius: 8px; padding: 10px 14px; margin-bottom: 12px;
+    }
+    .pix-copy-key {
+      flex: 1; font-size: 0.75rem; word-break: break-all; color: var(--text);
+      font-family: monospace;
+    }
+    .btn-copy {
+      flex-shrink: 0; padding: 6px 14px; font-size: 0.8rem;
+      background: var(--gold); color: #fff; border: none;
+      border-radius: 6px; cursor: pointer; font-weight: 700;
+      font-family: inherit; transition: background .2s;
+      white-space: nowrap;
+    }
+    .btn-copy:hover { background: var(--gold-dark); }
+    .pix-modal-hint {
+      font-size: 0.78rem; color: var(--text-muted);
+      text-align: center; line-height: 1.5;
+    }
+    .pix-modal-loading {
+      text-align: center; padding: 40px 0;
+      color: var(--text-muted); font-size: 0.9rem;
+    }
+  </style>
 </head>
 <body>
 
@@ -32,6 +109,16 @@
     </div>
   </div>
 
+  <!-- PIX MODAL -->
+  <div class="pix-modal-backdrop" id="pix-backdrop" onclick="closePix(event)">
+    <div class="pix-modal" id="pix-modal">
+      <button class="pix-modal-close" onclick="closePix(null, true)">✕</button>
+      <div id="pix-modal-inner">
+        <div class="pix-modal-loading">Gerando código PIX…</div>
+      </div>
+    </div>
+  </div>
+
   <!-- FOOTER -->
   <footer>
     <p class="footer-names" data-config="nomes">[Nome da Noiva] &amp; [Nome do Noivo]</p>
@@ -52,7 +139,6 @@
       }
 
       try {
-        // Load item and auth status in parallel
         const [itemRes, meRes] = await Promise.all([
           App.apiFetch(`/api/items/${itemId}`),
           App.apiFetch('/api/auth/me'),
@@ -68,13 +154,10 @@
 
         document.title = `${item.name} — Chá de Panelas`;
 
-        // Check if item is already in cart
         let inCart = false;
         if (isLoggedIn) {
           const cartRes = await App.apiFetch('/api/cart');
-          if (cartRes.ok) {
-            inCart = cartRes.data.some(ci => ci.id === item.id);
-          }
+          if (cartRes.ok) inCart = cartRes.data.some(ci => ci.id === item.id);
         }
 
         let actionHtml = '';
@@ -87,29 +170,25 @@
             </div>
             <a href="/lista.html" class="btn btn-outline" style="margin-top:16px;">Ver outros presentes</a>
           `;
-        } else if (inCart) {
-          actionHtml = `
-            <div class="already-in-cart">
-              ✓ Já está no seu carrinho!
-            </div>
-            <a href="/carrinho.html" class="btn btn-primary" style="margin-top:16px;">Ver carrinho</a>
-          `;
-        } else if (!isLoggedIn) {
-          const redirect = encodeURIComponent(`/item.html?id=${itemId}`);
-          actionHtml = `
-            <a href="/login.html?redirect=${redirect}" class="btn btn-primary btn-full" style="margin-top:20px;">
-              Entrar para adicionar ao carrinho
-            </a>
-            <p style="text-align:center;margin-top:12px;font-size:0.85rem;color:var(--text-muted)">
-              Ainda não tem conta? <a href="/cadastro.html?redirect=${redirect}">Cadastre-se</a>
-            </p>
-          `;
         } else {
           actionHtml = `
-            <button class="btn btn-primary btn-full" id="add-cart-btn" style="margin-top:20px;">
-              Adicionar ao Carrinho
+            <button class="btn btn-primary btn-full" id="pix-btn" style="margin-top:20px;">
+              💝 Pagar via PIX
             </button>
           `;
+          if (inCart) {
+            actionHtml += `
+              <a href="/carrinho.html" class="btn btn-outline btn-full" style="margin-top:10px;">
+                ✓ No carrinho — Ver carrinho
+              </a>
+            `;
+          } else if (isLoggedIn) {
+            actionHtml += `
+              <button class="btn btn-outline btn-full" id="add-cart-btn" style="margin-top:10px;">
+                🛒 Adicionar ao Carrinho
+              </button>
+            `;
+          }
         }
 
         card.innerHTML = `
@@ -126,40 +205,90 @@
           ${actionHtml}
         `;
 
+        // PIX button
+        const pixBtn = document.getElementById('pix-btn');
+        if (pixBtn) {
+          pixBtn.addEventListener('click', () => openPix(item));
+        }
+
+        // Cart button
         const addBtn = document.getElementById('add-cart-btn');
         if (addBtn) {
           addBtn.addEventListener('click', async () => {
             addBtn.disabled = true;
-            addBtn.textContent = 'Adicionando...';
-            try {
-              const res = await App.apiFetch('/api/cart', {
-                method: 'POST',
-                body: { itemId: item.id },
-              });
-              if (res.ok) {
-                App.showToast('Presente adicionado ao carrinho! 🎁', 'success');
-                App.updateCartCount();
-                // Refresh to show "in cart" state
-                setTimeout(() => loadItem(), 600);
-              } else {
-                App.showToast(res.error || 'Erro ao adicionar', 'error');
-                addBtn.disabled = false;
-                addBtn.textContent = 'Adicionar ao Carrinho';
-              }
-            } catch {
-              App.showToast('Erro de conexão. Tente novamente.', 'error');
+            addBtn.textContent = 'Adicionando…';
+            const res = await App.apiFetch('/api/cart', { method: 'POST', body: { itemId: item.id } });
+            if (res.ok) {
+              App.showToast('Presente adicionado ao carrinho! 🎁', 'success');
+              App.updateCartCount();
+              setTimeout(() => loadItem(), 600);
+            } else {
+              App.showToast(res.error || 'Erro ao adicionar', 'error');
               addBtn.disabled = false;
-              addBtn.textContent = 'Adicionar ao Carrinho';
+              addBtn.textContent = '🛒 Adicionar ao Carrinho';
             }
           });
         }
 
-      } catch (e) {
+      } catch {
         card.innerHTML = `<p style="color:var(--red)">Erro ao carregar. Recarregue a página.</p>`;
       }
     }
 
+    async function openPix(item) {
+      document.getElementById('pix-backdrop').classList.add('open');
+      document.getElementById('pix-modal-inner').innerHTML =
+        `<div class="pix-modal-loading">Gerando código PIX…</div>`;
+      document.body.style.overflow = 'hidden';
+
+      const res = await App.apiFetch(`/api/pix-quick?itemId=${item.id}`);
+
+      if (!res.ok) {
+        document.getElementById('pix-modal-inner').innerHTML = `
+          <p style="text-align:center;color:var(--red);padding:24px 0;">${App.escapeHtml(res.error || 'Erro ao gerar PIX')}</p>
+          <p style="text-align:center;font-size:0.85rem;color:var(--text-muted);">Entre em contato com os noivos.</p>
+        `;
+        return;
+      }
+
+      const d = res.data;
+      document.getElementById('pix-modal-inner').innerHTML = `
+        <div class="pix-modal-title">💝 Pagar via PIX</div>
+        <div class="pix-modal-subtitle">${App.escapeHtml(item.emoji)} ${App.escapeHtml(item.name)}</div>
+        <div class="pix-modal-price">${App.formatPrice(d.valor)}</div>
+        <div class="pix-qr-wrap">
+          <img src="${d.qrCode}" alt="QR Code PIX" />
+        </div>
+        <div class="pix-copy-row">
+          <span class="pix-copy-key" id="pix-payload-text">${App.escapeHtml(d.payload)}</span>
+          <button class="btn-copy" onclick="copyPixCode()">Copiar</button>
+        </div>
+        <p class="pix-modal-hint">
+          Abra o app do seu banco → Pix → Pix Copia e Cola<br>
+          O valor já estará preenchido automaticamente 🧾
+        </p>
+      `;
+      window._pixPayload = d.payload;
+    }
+
+    function closePix(event, force) {
+      if (force || event.target === document.getElementById('pix-backdrop')) {
+        document.getElementById('pix-backdrop').classList.remove('open');
+        document.body.style.overflow = '';
+      }
+    }
+
+    function copyPixCode() {
+      const payload = window._pixPayload || document.getElementById('pix-payload-text')?.textContent;
+      if (!payload) return;
+      navigator.clipboard.writeText(payload).then(() => App.showToast('Código PIX copiado!', 'success'));
+    }
+
     document.addEventListener('DOMContentLoaded', loadItem);
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closePix(null, true);
+    });
   </script>
 </body>
 </html>
