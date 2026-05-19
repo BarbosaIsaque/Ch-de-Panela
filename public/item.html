@@ -7,13 +7,47 @@
   <link rel="stylesheet" href="/css/style.css" />
   <style>
     .item-img-wrap {
-      width: 160px; height: 160px;
+      width: 100%;
+      max-width: 320px;
+      aspect-ratio: 1 / 1;
       margin: 0 auto 20px;
       border-radius: 16px;
       overflow: hidden;
-      background: var(--border);
+      background: #fff;
+      border: 1px solid var(--border);
+      cursor: zoom-in;
+      position: relative;
     }
-    .item-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .item-img { width: 100%; height: 100%; object-fit: contain; display: block; padding: 10px; }
+    .item-img-zoom-hint {
+      position: absolute; bottom: 8px; right: 8px;
+      background: rgba(61,43,31,.72); color: #fff;
+      font-size: 0.7rem; padding: 3px 9px; border-radius: 20px;
+      pointer-events: none;
+    }
+
+    /* ── LIGHTBOX (imagem ampliada) ───────────────────────────── */
+    .lightbox-backdrop {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.88);
+      z-index: 300;
+      align-items: center; justify-content: center;
+      padding: 24px;
+      cursor: zoom-out;
+    }
+    .lightbox-backdrop.open { display: flex; }
+    .lightbox-img {
+      max-width: 95vw; max-height: 90vh;
+      object-fit: contain;
+      border-radius: 8px;
+      background: #fff;
+    }
+    .lightbox-close {
+      position: absolute; top: 18px; right: 22px;
+      background: none; border: none; color: #fff;
+      font-size: 2rem; cursor: pointer; line-height: 1;
+    }
 
     /* ── PAYMENT MODAL ───────────────────────────────────────── */
     .pay-modal-backdrop {
@@ -150,6 +184,12 @@
     </div>
   </div>
 
+  <!-- LIGHTBOX (imagem ampliada) -->
+  <div class="lightbox-backdrop" id="lightbox" onclick="closeLightbox()">
+    <button class="lightbox-close" aria-label="Fechar">✕</button>
+    <img class="lightbox-img" id="lightbox-img" src="" alt="" />
+  </div>
+
   <!-- FOOTER -->
   <footer>
     <p class="footer-names" data-config="nomes">[Nome da Noiva] &amp; [Nome do Noivo]</p>
@@ -185,7 +225,7 @@
         }
 
         const mediaHtml = item.image
-          ? `<div class="item-img-wrap"><img src="${App.escapeHtml(item.image)}" alt="${App.escapeHtml(item.name)}" class="item-img" /></div>`
+          ? `<div class="item-img-wrap" id="item-img-wrap"><img src="${App.escapeHtml(item.image)}" alt="${App.escapeHtml(item.name)}" class="item-img" /><span class="item-img-zoom-hint">🔍 ampliar</span></div>`
           : `<div class="item-emoji-large">${item.emoji}</div>`;
 
         let actionHtml = '';
@@ -221,6 +261,10 @@
         `;
 
         document.getElementById('pay-btn')?.addEventListener('click', () => openPayment(item));
+
+        document.getElementById('item-img-wrap')?.addEventListener('click', () => {
+          openLightbox(item.image, item.name);
+        });
 
         const addBtn = document.getElementById('add-cart-btn');
         if (addBtn) {
@@ -336,8 +380,22 @@
       navigator.clipboard.writeText(_pixPayload).then(() => App.showToast('Código PIX copiado!', 'success'));
     }
 
+    function openLightbox(src, alt) {
+      const lb = document.getElementById('lightbox');
+      const img = document.getElementById('lightbox-img');
+      img.src = src; img.alt = alt || '';
+      lb.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeLightbox() {
+      document.getElementById('lightbox').classList.remove('open');
+      document.body.style.overflow = '';
+    }
+
     document.addEventListener('DOMContentLoaded', loadItem);
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closePayment(null, true); });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { closePayment(null, true); closeLightbox(); }
+    });
   </script>
 </body>
 </html>

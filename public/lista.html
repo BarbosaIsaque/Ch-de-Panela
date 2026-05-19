@@ -7,16 +7,19 @@
   <link rel="stylesheet" href="/css/style.css" />
   <style>
     .gift-img-wrap {
-      width: 80px; height: 80px;
+      width: 100%;
+      aspect-ratio: 1 / 1;
       margin: 0 auto 12px;
       border-radius: 12px;
       overflow: hidden;
-      background: var(--border);
+      background: #fff;
+      border: 1px solid var(--border);
     }
     .gift-img {
       width: 100%; height: 100%;
-      object-fit: cover;
+      object-fit: contain;
       display: block;
+      padding: 6px;
     }
   </style>
 </head>
