@@ -243,13 +243,24 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+// Retorna um Map item_id -> 'reserved' | 'paid' (mantém .has() e .size dos chamadores)
 function getReservedSet() {
-  const rows = db.prepare('SELECT item_id FROM reserved_items').all();
-  return new Set(rows.map(r => r.item_id));
+  const rows = db.prepare(`
+    SELECT r.item_id, o.status
+    FROM reserved_items r
+    JOIN orders o ON o.id = r.order_id
+  `).all();
+  const map = new Map();
+  for (const r of rows) map.set(r.item_id, r.status === 'paid' ? 'paid' : 'reserved');
+  return map;
 }
 
 function enrichItem(item, reservedSet) {
-  return { ...item, reserved: reservedSet.has(item.id) };
+  return {
+    ...item,
+    reserved: reservedSet.has(item.id),
+    paid: reservedSet.get(item.id) === 'paid',
+  };
 }
 
 // ── AUTENTICAÇÃO POR CÓDIGO (OTP por e-mail) ──────────────────
@@ -783,6 +794,20 @@ app.post('/api/admin/orders/:id/paid', requireAdmin, (req, res) => {
   if (!order) return fail(res, 404, 'Pedido não encontrado');
   db.prepare('UPDATE orders SET status = ? WHERE id = ?').run('paid', id);
   return ok(res, { orderId: id, status: 'paid' });
+});
+
+// Cancela um pedido e libera os presentes de volta pra lista
+app.post('/api/admin/orders/:id/cancel', requireAdmin, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const order = db.prepare('SELECT id FROM orders WHERE id = ?').get(id);
+  if (!order) return fail(res, 404, 'Pedido não encontrado');
+  const cancel = db.transaction(() => {
+    db.prepare('DELETE FROM reserved_items WHERE order_id = ?').run(id);
+    db.prepare('DELETE FROM order_items WHERE order_id = ?').run(id);
+    db.prepare('DELETE FROM orders WHERE id = ?').run(id);
+  });
+  cancel();
+  return ok(res, { orderId: id, cancelled: true });
 });
 
 // ──────────────────────────────────────────────────────────────

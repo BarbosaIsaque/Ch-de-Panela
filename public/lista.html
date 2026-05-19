@@ -103,18 +103,23 @@
         return;
       }
 
-      grid.innerHTML = filtered.map(item => {
+      // disponíveis no topo, reservados/comprados no final
+      const ordered = [...filtered].sort((a, b) => (a.reserved ? 1 : 0) - (b.reserved ? 1 : 0));
+
+      grid.innerHTML = ordered.map(item => {
         const media = item.image
           ? `<div class="gift-img-wrap"><img src="${App.escapeHtml(item.image)}" alt="${App.escapeHtml(item.name)}" class="gift-img" loading="lazy" /></div>`
           : `<div class="gift-emoji">${item.emoji}</div>`;
+        const badgeText = item.paid ? 'Comprado' : (item.reserved ? 'Reservado' : 'Disponível');
+        const badgeClass = item.reserved ? 'badge-reserved' : 'badge-available';
         const inner = `
           ${media}
           <div class="gift-name">${App.escapeHtml(item.name)}</div>
           <div class="gift-price">${App.formatPrice(item.price)}</div>
-          <div><span class="badge ${item.reserved ? 'badge-reserved' : 'badge-available'}">${item.reserved ? 'Reservado' : 'Disponível'}</span></div>
+          <div><span class="badge ${badgeClass}">${badgeText}</span></div>
         `;
         if (item.reserved) {
-          return `<div class="gift-card reserved" aria-label="${App.escapeHtml(item.name)} — Reservado">${inner}</div>`;
+          return `<div class="gift-card reserved" aria-label="${App.escapeHtml(item.name)} — ${badgeText}">${inner}</div>`;
         }
         return `<a href="/item.html?id=${item.id}" class="gift-card">${inner}</a>`;
       }).join('');

@@ -144,9 +144,6 @@
             <button class="pay-tab active" onclick="showTab('pix', this)">
               <span class="tab-icon">📱</span>PIX
             </button>
-            <button class="pay-tab" onclick="showTab('transfer', this)">
-              <span class="tab-icon">🏦</span>Transferência
-            </button>
             <button class="pay-tab" onclick="showTab('card', this)">
               <span class="tab-icon">💳</span>Cartão
             </button>
@@ -166,22 +163,6 @@
             </div>
             <p class="pix-hint">Abra o app do seu banco → Pix → Pix Copia e Cola (ou escaneie o QR Code).</p>
             <p class="pix-hint" style="margin-top:6px;">Guarde o comprovante 🧾</p>
-          </div>
-
-          <!-- TRANSFERÊNCIA -->
-          <div class="pay-panel" id="panel-transfer">
-            ${bank.banco ? `
-              <table class="bank-table">
-                <tr><td>Banco</td><td><strong>${App.escapeHtml(bank.banco)}</strong></td></tr>
-                <tr><td>Agência</td><td>${App.escapeHtml(bank.agencia)}</td></tr>
-                <tr><td>Conta</td><td>${App.escapeHtml(bank.conta)}</td></tr>
-                <tr><td>Tipo</td><td>${App.escapeHtml(bank.tipo)}</td></tr>
-                <tr><td>Titular</td><td>${App.escapeHtml(bank.titular)}</td></tr>
-                ${bank.cpf ? `<tr><td>CPF</td><td>${App.escapeHtml(bank.cpf)}</td></tr>` : ''}
-                <tr><td>Valor</td><td><strong style="color:var(--gold-dark);">${App.formatPrice(order.total)}</strong></td></tr>
-              </table>
-              <p class="pix-hint">Use o comprovante de transferência como confirmação. 💕</p>
-            ` : '<p style="color:var(--text-muted);text-align:center;padding:16px 0;">Dados bancários ainda não configurados. Entre em contato com os noivos.</p>'}
           </div>
 
           <!-- CARTÃO -->

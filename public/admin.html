@@ -144,6 +144,7 @@
         const actionBtn = order.status === 'pending'
           ? `<button class="btn btn-sm btn-outline" onclick="markPaid(${order.id})">Marcar como Pago</button>`
           : `<span style="color:var(--green);font-size:0.85rem;">✓ Confirmado</span>`;
+        const cancelBtn = `<button class="btn btn-sm" style="background:#fff;border:1px solid var(--red);color:var(--red);" onclick="cancelOrder(${order.id})">Cancelar</button>`;
         const payMap = { dinheiro: '💵 Dinheiro', pix: '📱 PIX', credit_card: '💳 Cartão' };
         const payMethod = payMap[order.payment_method] || '—';
 
@@ -157,7 +158,7 @@
             <td style="font-weight:700;color:var(--gold-dark);white-space:nowrap;">${App.formatPrice(order.total)}</td>
             <td style="font-size:0.82rem;white-space:nowrap;">${payMethod}</td>
             <td>${statusBadge}</td>
-            <td>${actionBtn}</td>
+            <td><div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">${actionBtn}${cancelBtn}</div></td>
           </tr>
         `;
       }).join('');
@@ -183,6 +184,19 @@
           const btn = row.querySelector('button');
           if (btn) { btn.disabled = false; btn.textContent = 'Marcar como Pago'; }
         }
+      }
+    }
+
+    async function cancelOrder(orderId) {
+      if (!confirm('Cancelar este pedido? Os presentes voltam a ficar disponíveis na lista.')) return;
+      const res = await App.apiFetch(`/api/admin/orders/${orderId}/cancel?pw=${encodeURIComponent(adminPw)}`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        App.showToast('Pedido cancelado. Presentes liberados.', 'success');
+        await loadOrders();
+      } else {
+        App.showToast(res.error || 'Erro ao cancelar pedido', 'error');
       }
     }
 

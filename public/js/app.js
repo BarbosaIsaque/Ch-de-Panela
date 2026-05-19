@@ -64,6 +64,15 @@
           await fetch('/api/auth/logout', { method: 'POST' });
           window.location.href = '/';
         });
+        // link "Meus Pedidos" na navegação (só aparece pra quem está logado)
+        const navLinks = document.querySelector('.nav-links');
+        if (navLinks && !navLinks.querySelector('.nav-orders-link')) {
+          const li = document.createElement('li');
+          li.innerHTML = '<a href="/meus-pedidos.html" class="nav-orders-link">Meus Pedidos</a>';
+          const cartLi = navLinks.querySelector('.nav-cart')?.closest('li');
+          if (cartLi) navLinks.insertBefore(li, cartLi);
+          else navLinks.appendChild(li);
+        }
         await updateCartCount();
       } else {
         navUser.innerHTML = `<a href="/login.html" class="btn btn-outline btn-sm">Entrar</a>`;

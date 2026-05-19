@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Meus Pedidos — Chá de Panelas</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    .order-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .order-card-head {
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
+    }
+    .order-card-foot {
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 8px;
+      padding-top: 14px; margin-top: 6px;
+      border-top: 2px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/" class="nav-logo">Chá de <span>Panelas</span></a>
+      <ul class="nav-links">
+        <li><a href="/lista.html">Lista de Presentes</a></li>
+        <li><a href="/carrinho.html" class="nav-cart">🛒 Carrinho <span class="cart-badge"></span></a></li>
+      </ul>
+      <div id="nav-user-area"></div>
+    </div>
+  </nav>
+
+  <div class="cart-page">
+    <div style="margin-bottom:24px;">
+      <a href="/lista.html" class="back-link">← Lista de Presentes</a>
+      <h1 style="font-size:2rem;">Meus Pedidos</h1>
+      <p style="color:var(--text-muted);font-size:0.9rem;">Aqui ficam os presentes que você já reservou e comprou.</p>
+    </div>
+
+    <div id="orders-content">
+      <div class="skeleton" style="height:140px;border-radius:12px;margin-bottom:16px;"></div>
+      <div class="skeleton" style="height:140px;border-radius:12px;"></div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <p class="footer-names" data-config="nomes">Ana Clara &amp; Isaque</p>
+    <p data-config="dataEvento">20 de junho de 2026</p>
+  </footer>
+
+  <script src="/js/app.js"></script>
+  <script>
+    async function checkAuth() {
+      const res = await App.apiFetch('/api/auth/me');
+      if (!res.ok) {
+        window.location.href = '/login.html?redirect=/meus-pedidos.html';
+        return false;
+      }
+      return true;
+    }
+
+    async function loadOrders() {
+      const content = document.getElementById('orders-content');
+      const res = await App.apiFetch('/api/orders/me');
+
+      if (!res.ok) {
+        content.innerHTML = `<p style="color:var(--red)">Erro ao carregar seus pedidos.</p>`;
+        return;
+      }
+
+      const orders = res.data;
+
+      if (orders.length === 0) {
+        content.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">🎁</div>
+            <h2>Você ainda não tem pedidos</h2>
+            <p>Escolha um presente da nossa lista para começar.</p>
+            <a href="/lista.html" class="btn btn-primary">Ver Lista de Presentes</a>
+          </div>
+        `;
+        return;
+      }
+
+      const payMap = { dinheiro: '💵 Dinheiro', pix: '📱 PIX', credit_card: '💳 Cartão' };
+
+      content.innerHTML = orders.map(order => {
+        const date = new Date(order.created_at.replace(' ', 'T')).toLocaleDateString('pt-BR', {
+          day: '2-digit', month: 'long', year: 'numeric'
+        });
+        const isPaid = order.status === 'paid';
+        const statusBadge = isPaid
+          ? `<span class="badge badge-paid">Pago</span>`
+          : `<span class="badge badge-pending">Aguardando pagamento</span>`;
+        const pay = payMap[order.payment_method] || '';
+
+        return `
+          <div class="order-card">
+            <div class="order-card-head">
+              <strong>Pedido #${order.id}</strong>
+              <span style="font-size:0.82rem;color:var(--text-muted);">${date}</span>
+            </div>
+            ${order.items.map(it => `
+              <div class="order-item-row">
+                <div class="order-item-name">
+                  <span>${it.emoji || '🎁'}</span>
+                  <span>${App.escapeHtml(it.name)}</span>
+                </div>
+                <span style="font-weight:700;color:var(--gold-dark);white-space:nowrap;">${App.formatPrice(it.price)}</span>
+              </div>
+            `).join('')}
+            <div class="order-card-foot">
+              <span>${statusBadge}${pay ? `<span style="font-size:0.82rem;color:var(--text-muted);margin-left:8px;">${pay}</span>` : ''}</span>
+              <strong style="color:var(--gold-dark);font-size:1.1rem;">${App.formatPrice(order.total)}</strong>
+            </div>
+            ${isPaid ? '' : `<a href="/confirmacao.html?orderId=${order.id}" class="btn btn-primary btn-full" style="margin-top:14px;">Finalizar pagamento</a>`}
+          </div>
+        `;
+      }).join('');
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      const authed = await checkAuth();
+      if (authed) await loadOrders();
+    });
+  </script>
+</body>
+</html>
