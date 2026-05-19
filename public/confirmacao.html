@@ -150,6 +150,9 @@
             <button class="pay-tab" onclick="showTab('card', this)">
               <span class="tab-icon">💳</span>Cartão
             </button>
+            <button class="pay-tab" onclick="showTab('cash', this)">
+              <span class="tab-icon">💵</span>Dinheiro
+            </button>
           </div>
 
           <!-- PIX -->
@@ -209,6 +212,25 @@
               `}
             </div>
           </div>
+
+          <!-- DINHEIRO -->
+          <div class="pay-panel" id="panel-cash">
+            <div class="card-coming">
+              <div class="big-icon">💵</div>
+              <h3 style="margin-bottom:8px;">Pagar em dinheiro</h3>
+              <p style="color:var(--text-muted);margin-bottom:18px;">
+                Seu presente já está reservado! 💝 Se preferir, você pode entregar o valor
+                de <strong style="color:var(--gold-dark);">${App.formatPrice(order.total)}</strong>
+                em dinheiro para os noivos no dia do chá.
+              </p>
+              <button id="btn-cash" class="btn btn-primary" style="width:100%;margin-bottom:10px;" onclick="confirmCash(${order.id})">
+                Vou pagar em dinheiro no dia
+              </button>
+              <p style="font-size:0.75rem;color:var(--text-muted);">
+                Os noivos serão avisados de que você escolheu pagar em dinheiro.
+              </p>
+            </div>
+          </div>
         </div>
 
         <a href="/lista.html" class="btn btn-outline" style="margin-bottom:12px;">Ver Lista de Presentes</a>
@@ -260,6 +282,27 @@
       } else {
         App.showToast(res.error || 'Não foi possível iniciar o pagamento.', 'error');
         if (btn) { btn.disabled = false; btn.textContent = 'Tentar novamente'; }
+      }
+    }
+
+    async function confirmCash(orderId) {
+      const btn = document.getElementById('btn-cash');
+      if (btn) { btn.disabled = true; btn.textContent = 'Confirmando...'; }
+      const res = await App.apiFetch(`/api/orders/${orderId}/cash`, { method: 'POST' });
+      const panel = document.getElementById('panel-cash');
+      if (res.ok && panel) {
+        panel.innerHTML = `
+          <div class="card-coming">
+            <div class="big-icon">🎉</div>
+            <h3 style="margin-bottom:8px;">Combinado!</h3>
+            <p style="color:var(--text-muted);">
+              Seu presente está reservado no seu nome. É só trazer o valor no dia
+              do chá e entregar para os noivos. Muito obrigada! 💕
+            </p>
+          </div>`;
+      } else {
+        App.showToast(res.error || 'Erro ao confirmar. Tente novamente.', 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'Vou pagar em dinheiro no dia'; }
       }
     }
 

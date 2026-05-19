@@ -96,10 +96,10 @@
 
     /* tabs */
     .pay-tabs {
-      display: flex; gap: 6px; margin-bottom: 20px;
+      display: flex; gap: 6px; margin-bottom: 20px; flex-wrap: wrap;
     }
     .pay-tab {
-      flex: 1; padding: 10px 6px;
+      flex: 1; min-width: 84px; padding: 10px 6px;
       border: 2px solid var(--border);
       border-radius: 10px;
       background: var(--card-bg);
@@ -247,6 +247,8 @@
             actionHtml += `<a href="/carrinho.html" class="btn btn-outline btn-full" style="margin-top:10px;">✓ No carrinho — Ver carrinho</a>`;
           } else if (isLoggedIn) {
             actionHtml += `<button class="btn btn-outline btn-full" id="add-cart-btn" style="margin-top:10px;">🛒 Adicionar ao Carrinho</button>`;
+          } else {
+            actionHtml += `<a href="/cadastro.html?redirect=${encodeURIComponent('/item.html?id=' + item.id)}" class="btn btn-outline btn-full" style="margin-top:10px;">🛒 Adicionar ao Carrinho</a>`;
           }
         }
 
@@ -346,6 +348,21 @@
         </div>
       `;
 
+      // Dinheiro panel content
+      const cashContent = `
+        <div class="card-panel-inner">
+          <div class="card-big-icon">💵</div>
+          <p style="color:var(--text-muted);margin-bottom:14px;font-size:0.88rem;">
+            Prefere pagar em dinheiro? Sem problema! É só
+            <strong>adicionar o presente ao carrinho e finalizar o pedido</strong> —
+            assim ele fica reservado no seu nome. Você entrega o valor para os
+            noivos no dia do chá. 💝
+          </p>
+          <a href="/carrinho.html" class="btn btn-primary" style="width:100%;display:block;">Ir para o carrinho</a>
+          <p style="font-size:0.72rem;color:var(--text-muted);margin-top:8px;">É necessário ter uma conta para reservar o presente 🔒</p>
+        </div>
+      `;
+
       document.getElementById('pay-modal-inner').innerHTML = `
         <div class="pay-modal-item">
           <div class="pay-modal-item-name">${item.emoji} ${App.escapeHtml(item.name)}</div>
@@ -355,10 +372,12 @@
           <button class="pay-tab active" onclick="showTab('pix',this)"><span class="tab-icon">📱</span>PIX</button>
           <button class="pay-tab" onclick="showTab('transfer',this)"><span class="tab-icon">🏦</span>Transferência</button>
           <button class="pay-tab" onclick="showTab('card',this)"><span class="tab-icon">💳</span>Cartão</button>
+          <button class="pay-tab" onclick="showTab('cash',this)"><span class="tab-icon">💵</span>Dinheiro</button>
         </div>
         <div class="pay-panel active" id="modal-panel-pix">${pixContent}</div>
         <div class="pay-panel" id="modal-panel-transfer">${transferContent}</div>
         <div class="pay-panel" id="modal-panel-card">${cardContent}</div>
+        <div class="pay-panel" id="modal-panel-cash">${cashContent}</div>
       `;
     }
 

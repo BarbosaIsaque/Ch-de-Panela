@@ -59,7 +59,7 @@
           </div>
           <div class="summary-card">
             <div class="value" id="sum-pending">—</div>
-            <div class="label">Aguardando PIX</div>
+            <div class="label">Aguardando pagamento</div>
           </div>
           <div class="summary-card">
             <div class="value" id="sum-guests">—</div>
@@ -76,14 +76,16 @@
                   <th>Data</th>
                   <th>Convidado</th>
                   <th>E-mail</th>
+                  <th>Telefone</th>
                   <th>Presentes</th>
                   <th>Total</th>
+                  <th>Pagamento</th>
                   <th>Status</th>
                   <th>Ações</th>
                 </tr>
               </thead>
               <tbody id="orders-tbody">
-                <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted);">Carregando...</td></tr>
+                <tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text-muted);">Carregando...</td></tr>
               </tbody>
             </table>
           </div>
@@ -105,7 +107,7 @@
 
     async function loadOrders() {
       const tbody = document.getElementById('orders-tbody');
-      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted);">Carregando...</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text-muted);">Carregando...</td></tr>`;
 
       const res = await App.apiFetch(`/api/admin/orders?pw=${encodeURIComponent(adminPw)}`);
 
@@ -114,7 +116,7 @@
           App.showToast('Senha incorreta', 'error');
           showLogin();
         } else {
-          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--red);padding:40px;">Erro ao carregar pedidos.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--red);padding:40px;">Erro ao carregar pedidos.</td></tr>`;
         }
         return;
       }
@@ -127,7 +129,7 @@
       document.getElementById('sum-guests').textContent = summary.guests;
 
       if (orders.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted);">Nenhum pedido ainda.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text-muted);">Nenhum pedido ainda.</td></tr>`;
         return;
       }
 
@@ -142,14 +144,18 @@
         const actionBtn = order.status === 'pending'
           ? `<button class="btn btn-sm btn-outline" onclick="markPaid(${order.id})">Marcar como Pago</button>`
           : `<span style="color:var(--green);font-size:0.85rem;">✓ Confirmado</span>`;
+        const payMap = { dinheiro: '💵 Dinheiro', pix: '📱 PIX', credit_card: '💳 Cartão' };
+        const payMethod = payMap[order.payment_method] || '—';
 
         return `
           <tr id="order-row-${order.id}">
             <td style="white-space:nowrap;font-size:0.82rem;">${date}</td>
             <td style="font-weight:700;">${App.escapeHtml(order.user_name)}</td>
             <td style="font-size:0.85rem;color:var(--text-muted);">${App.escapeHtml(order.user_email)}</td>
+            <td style="font-size:0.85rem;white-space:nowrap;">${App.escapeHtml(order.user_phone || '—')}</td>
             <td style="font-size:0.82rem;max-width:220px;">${App.escapeHtml(itemNames)}</td>
             <td style="font-weight:700;color:var(--gold-dark);white-space:nowrap;">${App.formatPrice(order.total)}</td>
+            <td style="font-size:0.82rem;white-space:nowrap;">${payMethod}</td>
             <td>${statusBadge}</td>
             <td>${actionBtn}</td>
           </tr>

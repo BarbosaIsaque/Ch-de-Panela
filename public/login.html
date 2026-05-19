@@ -5,6 +5,29 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Entrar — Chá de Panelas</title>
   <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    .step { display: none; }
+    .step.active { display: block; }
+    .code-input {
+      width: 100%; text-align: center;
+      font-size: 1.7rem; letter-spacing: 0.45em;
+      font-weight: 700; font-family: monospace;
+      padding: 14px 8px;
+    }
+    .code-input::placeholder { color: #d8cab5; }
+    .code-sent-to { font-weight: 700; color: var(--gold-dark); }
+    .form-link-btn {
+      background: none; border: none; color: var(--gold-dark);
+      cursor: pointer; font-family: inherit; font-size: 0.86rem;
+      text-decoration: underline; padding: 4px;
+    }
+    .dev-code-box {
+      background: #fff8e6; border: 1px dashed var(--gold);
+      border-radius: 8px; padding: 10px 12px; margin-bottom: 14px;
+      font-size: 0.82rem; color: var(--text); text-align: center; line-height: 1.5;
+    }
+    .dev-code-box strong { font-size: 1.15rem; letter-spacing: 2px; color: var(--gold-dark); }
+  </style>
 </head>
 <body>
 
@@ -23,36 +46,61 @@
   <div class="form-page">
     <div class="container-sm" style="width:100%;">
       <div class="form-card">
-        <h1>Entrar</h1>
-        <p class="form-subtitle">Acesse sua conta para reservar presentes</p>
 
-        <div class="form-error" id="form-error"></div>
+        <!-- STEP 1: e-mail -->
+        <div class="step active" id="step-email">
+          <h1>Entrar</h1>
+          <p class="form-subtitle">Digite seu e-mail e enviamos um código de acesso — sem senha!</p>
 
-        <form id="login-form" novalidate>
-          <div class="form-group">
-            <label for="email">E-mail</label>
-            <input type="email" id="email" name="email" placeholder="seu@email.com" autocomplete="email" required />
-          </div>
-          <div class="form-group">
-            <label for="password">Senha</label>
-            <input type="password" id="password" name="password" placeholder="Sua senha" autocomplete="current-password" required />
-          </div>
+          <div class="form-error" id="error-email"></div>
 
-          <button type="submit" class="btn btn-primary btn-full" id="submit-btn">
-            Entrar
-          </button>
-        </form>
+          <form id="email-form" novalidate>
+            <div class="form-group">
+              <label for="email">E-mail</label>
+              <input type="email" id="email" name="email" placeholder="seu@email.com" autocomplete="email" required />
+            </div>
+            <button type="submit" class="btn btn-primary btn-full" id="email-btn">Receber código</button>
+          </form>
 
-        <p class="form-alt">
-          Ainda não tem conta? <a id="register-link" href="/cadastro.html">Cadastre-se</a>
-        </p>
+          <p class="form-alt">
+            Ainda não tem conta? <a id="register-link" href="/cadastro.html">Cadastre-se</a>
+          </p>
+        </div>
+
+        <!-- STEP 2: código -->
+        <div class="step" id="step-codigo">
+          <h1>Digite o código</h1>
+          <p class="form-subtitle">
+            Enviamos um código de 6 dígitos para<br>
+            <span class="code-sent-to" id="email-display"></span>
+          </p>
+
+          <div class="dev-code-box" id="dev-code-box" style="display:none;"></div>
+          <div class="form-error" id="error-codigo"></div>
+
+          <form id="codigo-form" novalidate>
+            <div class="form-group">
+              <label for="code">Código de verificação</label>
+              <input type="text" id="code" name="code" class="code-input" placeholder="------"
+                     inputmode="numeric" maxlength="6" autocomplete="one-time-code" required />
+            </div>
+            <button type="submit" class="btn btn-primary btn-full" id="codigo-btn">Entrar</button>
+          </form>
+
+          <p class="form-alt" style="line-height:2;">
+            Não recebeu? <button type="button" class="form-link-btn" id="resend-btn">Reenviar código</button>
+            <br>
+            <button type="button" class="form-link-btn" id="back-btn">← Usar outro e-mail</button>
+          </p>
+        </div>
+
       </div>
     </div>
   </div>
 
   <!-- FOOTER -->
   <footer>
-    <p class="footer-names" data-config="nomes">[Nome da Noiva] &amp; [Nome do Noivo]</p>
+    <p class="footer-names" data-config="nomes">Ana Clara &amp; Isaque</p>
   </footer>
 
   <script src="/js/app.js"></script>
@@ -60,44 +108,118 @@
     const params = new URLSearchParams(window.location.search);
     const redirect = params.get('redirect') || '/lista.html';
 
-    // Update register link to preserve redirect
     const registerLink = document.getElementById('register-link');
     if (redirect !== '/lista.html') {
       registerLink.href = `/cadastro.html?redirect=${encodeURIComponent(redirect)}`;
     }
 
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
+    let userEmail = '';
+
+    function showStep(which) {
+      document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+      document.getElementById('step-' + which).classList.add('active');
+    }
+    function showError(id, msg) {
+      const el = document.getElementById(id);
+      el.textContent = msg;
+      el.classList.add('visible');
+    }
+    function clearError(id) {
+      document.getElementById(id).classList.remove('visible');
+    }
+    function handleCodeSent(data) {
+      const box = document.getElementById('dev-code-box');
+      if (data && data.devCode) {
+        box.innerHTML = `Modo teste (e-mail ainda não configurado).<br>Seu código é: <strong>${data.devCode}</strong>`;
+        box.style.display = 'block';
+      } else {
+        box.style.display = 'none';
+      }
+    }
+
+    // ── STEP 1: pedir o código ───────────────────────────────
+    document.getElementById('email-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const errorEl = document.getElementById('form-error');
-      const btn = document.getElementById('submit-btn');
-      errorEl.classList.remove('visible');
-
+      clearError('error-email');
+      const btn = document.getElementById('email-btn');
       const email = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value;
 
-      if (!email || !password) {
-        errorEl.textContent = 'Preencha todos os campos.';
-        errorEl.classList.add('visible');
-        return;
+      if (!email) return showError('error-email', 'Digite seu e-mail.');
+
+      btn.disabled = true;
+      btn.textContent = 'Enviando código...';
+
+      const res = await App.apiFetch('/api/auth/login-request', {
+        method: 'POST',
+        body: { email },
+      });
+
+      btn.disabled = false;
+      btn.textContent = 'Receber código';
+
+      if (res.ok) {
+        userEmail = email;
+        document.getElementById('email-display').textContent = email;
+        handleCodeSent(res.data);
+        showStep('codigo');
+        document.getElementById('code').focus();
+      } else {
+        showError('error-email', res.error || 'Erro ao enviar o código. Tente novamente.');
+      }
+    });
+
+    // ── STEP 2: verificar o código ───────────────────────────
+    const codeInput = document.getElementById('code');
+    codeInput.addEventListener('input', () => {
+      codeInput.value = codeInput.value.replace(/\D/g, '').slice(0, 6);
+    });
+
+    document.getElementById('codigo-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearError('error-codigo');
+      const btn = document.getElementById('codigo-btn');
+      const code = codeInput.value.trim();
+
+      if (code.length !== 6) {
+        return showError('error-codigo', 'Digite os 6 dígitos do código.');
       }
 
       btn.disabled = true;
-      btn.textContent = 'Entrando...';
+      btn.textContent = 'Verificando...';
 
-      const res = await App.apiFetch('/api/auth/login', {
+      const res = await App.apiFetch('/api/auth/verify', {
         method: 'POST',
-        body: { email, password },
+        body: { email: userEmail, code },
       });
 
       if (res.ok) {
         App.showToast('Bem-vindo(a) de volta! 💕', 'success');
-        setTimeout(() => { window.location.href = redirect; }, 500);
+        setTimeout(() => { window.location.href = redirect; }, 600);
       } else {
-        errorEl.textContent = res.error || 'E-mail ou senha incorretos.';
-        errorEl.classList.add('visible');
+        showError('error-codigo', res.error || 'Código incorreto. Tente novamente.');
         btn.disabled = false;
         btn.textContent = 'Entrar';
       }
+    });
+
+    // ── reenviar / voltar ────────────────────────────────────
+    document.getElementById('resend-btn').addEventListener('click', async () => {
+      clearError('error-codigo');
+      const res = await App.apiFetch('/api/auth/login-request', {
+        method: 'POST',
+        body: { email: userEmail },
+      });
+      if (res.ok) {
+        handleCodeSent(res.data);
+        App.showToast('Código reenviado! 📧', 'success');
+      } else {
+        showError('error-codigo', res.error || 'Não foi possível reenviar agora.');
+      }
+    });
+
+    document.getElementById('back-btn').addEventListener('click', () => {
+      clearError('error-codigo');
+      showStep('email');
     });
   </script>
 </body>

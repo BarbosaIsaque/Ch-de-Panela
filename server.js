@@ -1,4 +1,5 @@
 'use strict';
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
 // ============================================================
 // CONFIG — EDIT THESE VALUES BEFORE GOING LIVE
@@ -32,6 +33,13 @@ const CONFIG = {
     webhookSecret: '', // Dashboard Pagar.me → Webhooks → Criar webhook → copie o secret
   },
 
+  // ── E-MAIL (envio do código de login de 6 dígitos) ───────────
+  // Preencha o arquivo .env (modelo em .env.example) com um Gmail + senha de app.
+  email: {
+    user: process.env.EMAIL_USER || '',
+    appPassword: process.env.EMAIL_APP_PASSWORD || '',
+  },
+
   adminPassword: 'Isana2026@',
   port: process.env.PORT || 3000,
 };
@@ -46,6 +54,7 @@ const path = require('path');
 const fs = require('fs');
 const QRCode = require('qrcode');
 const { createStaticPix, hasError: pixHasError } = require('pix-utils');
+const nodemailer = require('nodemailer');
 
 const app = express();
 const DB_PATH = path.join(__dirname, 'data.db');
@@ -162,11 +171,23 @@ db.exec(`
     order_id INTEGER NOT NULL REFERENCES orders(id),
     reserved_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS login_codes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT NOT NULL,
+    code TEXT NOT NULL,
+    name TEXT,
+    phone TEXT,
+    expires_at TEXT NOT NULL,
+    used INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
 `);
 
 // Migrações seguras (ignora se coluna já existe)
 try { db.exec("ALTER TABLE orders ADD COLUMN pagarme_order_id TEXT"); } catch (_) {}
 try { db.exec("ALTER TABLE orders ADD COLUMN payment_method TEXT DEFAULT 'manual'"); } catch (_) {}
+try { db.exec("ALTER TABLE users ADD COLUMN phone TEXT"); } catch (_) {}
 
 // ──────────────────────────────────────────────────────────────
 // PAGAR.ME HELPER
@@ -231,6 +252,61 @@ function enrichItem(item, reservedSet) {
   return { ...item, reserved: reservedSet.has(item.id) };
 }
 
+// ── AUTENTICAÇÃO POR CÓDIGO (OTP por e-mail) ──────────────────
+function genCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function isValidEmail(email) {
+  return typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}
+
+function emailConfigured() {
+  return !!(CONFIG.email.user && CONFIG.email.appPassword);
+}
+
+let _mailTransport = null;
+function getMailTransport() {
+  if (_mailTransport) return _mailTransport;
+  if (!emailConfigured()) return null;
+  _mailTransport = nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: CONFIG.email.user, pass: CONFIG.email.appPassword },
+  });
+  return _mailTransport;
+}
+
+// Envia o código por e-mail. Retorna true se enviou; false se não há e-mail
+// configurado (modo teste — o código aparece no console do servidor).
+async function sendLoginCodeEmail(to, code) {
+  const transport = getMailTransport();
+  if (!transport) {
+    console.log('\n  ┌──────────────────────────────────────┐');
+    console.log('  │  CÓDIGO DE LOGIN (modo teste)         │');
+    console.log(`  │  ${to}`);
+    console.log(`  │  >>>   ${code}   <<<`);
+    console.log('  └──────────────────────────────────────┘\n');
+    return false;
+  }
+  const html = `
+    <div style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;background:#FDFBF8;padding:36px 28px;border-radius:14px;border:1px solid #ecdfce;">
+      <h1 style="color:#3D2B1F;font-size:22px;text-align:center;margin:0 0 2px;">Chá de Panelas</h1>
+      <p style="color:#9a8c7a;text-align:center;margin:0 0 24px;font-size:14px;">${CONFIG.nomes}</p>
+      <p style="color:#3D2B1F;font-size:15px;line-height:1.6;">Oi! Use o código abaixo para entrar na nossa lista de presentes:</p>
+      <div style="text-align:center;margin:26px 0;">
+        <span style="font-size:34px;letter-spacing:8px;font-weight:bold;color:#B8860B;background:#fff;padding:16px 20px 16px 28px;border-radius:12px;border:2px dashed #D4AF37;display:inline-block;">${code}</span>
+      </div>
+      <p style="color:#9a8c7a;font-size:13px;text-align:center;line-height:1.6;">O código vale por 10 minutos.<br>Se não foi você que pediu, é só ignorar este e-mail. 💝</p>
+    </div>`;
+  await transport.sendMail({
+    from: `"Chá de Panelas — ${CONFIG.nomes}" <${CONFIG.email.user}>`,
+    to,
+    subject: `Seu código de acesso: ${code}`,
+    html,
+  });
+  return true;
+}
+
 // ──────────────────────────────────────────────────────────────
 // ROUTES
 // ──────────────────────────────────────────────────────────────
@@ -242,33 +318,90 @@ app.get('/', (req, res) => {
 
 // ── AUTH ──────────────────────────────────────────────────────
 
-app.post('/api/auth/register', async (req, res) => {
-  const { name, email, password } = req.body;
-  if (!name || !email || !password) return fail(res, 400, 'Preencha todos os campos');
-  if (password.length < 6) return fail(res, 400, 'Senha deve ter ao menos 6 caracteres');
+// Gera um código, salva e envia por e-mail. Usado por register/login-request.
+async function issueCode(res, { email, name, phone }) {
+  // anti-spam — 1 código a cada 45s por e-mail
+  const recent = db.prepare(
+    "SELECT COUNT(*) AS c FROM login_codes WHERE email = ? AND created_at > datetime('now','-45 seconds')"
+  ).get(email);
+  if (recent.c > 0) return fail(res, 429, 'Aguarde alguns segundos antes de pedir um novo código.');
+
+  const code = genCode();
+  db.prepare(
+    "INSERT INTO login_codes (email, code, name, phone, expires_at) VALUES (?, ?, ?, ?, datetime('now','+10 minutes'))"
+  ).run(email, code, name || null, phone || null);
+  db.prepare("DELETE FROM login_codes WHERE created_at < datetime('now','-1 day')").run();
+
+  let sent = false;
+  try {
+    sent = await sendLoginCodeEmail(email, code);
+  } catch (e) {
+    console.error('[E-mail]', e.message);
+    return fail(res, 502, 'Não conseguimos enviar o e-mail. Confira o endereço e tente de novo.');
+  }
+
+  const payload = { sent, email };
+  // modo teste: sem e-mail configurado (e fora de produção), devolve o código
+  if (!sent && process.env.NODE_ENV !== 'production') payload.devCode = code;
+  return ok(res, payload);
+}
+
+// Cadastro — passo 1: recebe nome/e-mail/telefone e envia o código
+app.post('/api/auth/register-request', async (req, res) => {
+  let { name, email, phone } = req.body;
+  name = (name || '').trim();
+  email = (email || '').trim().toLowerCase();
+  phone = (phone || '').trim();
+
+  if (!name || !email || !phone) return fail(res, 400, 'Preencha nome, e-mail e telefone.');
+  if (name.length < 3) return fail(res, 400, 'Digite seu nome completo.');
+  if (!isValidEmail(email)) return fail(res, 400, 'E-mail inválido.');
+  if (phone.replace(/\D/g, '').length < 10) return fail(res, 400, 'Telefone inválido. Inclua o DDD.');
 
   const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
-  if (existing) return fail(res, 409, 'E-mail já cadastrado');
+  if (existing) return fail(res, 409, 'Esse e-mail já tem cadastro. É só fazer login!');
 
-  const hash = await bcrypt.hash(password, 10);
-  const result = db.prepare('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)').run(name, email, hash);
-
-  req.session.userId = result.lastInsertRowid;
-  req.session.userName = name;
-  req.session.userEmail = email;
-
-  return ok(res, { id: result.lastInsertRowid, name, email });
+  return issueCode(res, { email, name, phone });
 });
 
-app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return fail(res, 400, 'Preencha todos os campos');
+// Login — passo 1: recebe o e-mail e envia o código
+app.post('/api/auth/login-request', async (req, res) => {
+  let { email } = req.body;
+  email = (email || '').trim().toLowerCase();
 
-  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
-  if (!user) return fail(res, 401, 'E-mail ou senha incorretos');
+  if (!isValidEmail(email)) return fail(res, 400, 'E-mail inválido.');
 
-  const match = await bcrypt.compare(password, user.password_hash);
-  if (!match) return fail(res, 401, 'E-mail ou senha incorretos');
+  const user = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+  if (!user) return fail(res, 404, 'Não encontramos esse e-mail. Faça seu cadastro primeiro.');
+
+  return issueCode(res, { email });
+});
+
+// Passo 2: verifica o código e entra (cria a conta no primeiro acesso)
+app.post('/api/auth/verify', (req, res) => {
+  let { email, code } = req.body;
+  email = (email || '').trim().toLowerCase();
+  code = (code || '').trim();
+
+  if (!isValidEmail(email) || !/^\d{6}$/.test(code)) {
+    return fail(res, 400, 'Código inválido.');
+  }
+
+  const row = db.prepare(
+    "SELECT * FROM login_codes WHERE email = ? AND code = ? AND used = 0 AND expires_at > datetime('now') ORDER BY id DESC LIMIT 1"
+  ).get(email, code);
+  if (!row) return fail(res, 400, 'Código incorreto ou expirado. Peça um novo.');
+
+  db.prepare('UPDATE login_codes SET used = 1 WHERE id = ?').run(row.id);
+
+  let user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+  if (!user) {
+    if (!row.name) return fail(res, 400, 'Cadastro incompleto. Refaça o cadastro.');
+    const result = db.prepare(
+      "INSERT INTO users (name, email, phone, password_hash) VALUES (?, ?, ?, '')"
+    ).run(row.name, email, row.phone || null);
+    user = { id: result.lastInsertRowid, name: row.name, email };
+  }
 
   req.session.userId = user.id;
   req.session.userName = user.name;
@@ -440,6 +573,17 @@ app.get('/api/orders/me', requireAuth, (req, res) => {
   return ok(res, enriched);
 });
 
+// ── PAGAMENTO EM DINHEIRO ─────────────────────────────────────
+// Marca o pedido como "vou pagar em dinheiro no dia do chá".
+app.post('/api/orders/:id/cash', requireAuth, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const order = db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?')
+    .get(id, req.session.userId);
+  if (!order) return fail(res, 404, 'Pedido não encontrado');
+  db.prepare("UPDATE orders SET payment_method = 'dinheiro' WHERE id = ?").run(id);
+  return ok(res, { orderId: id, paymentMethod: 'dinheiro' });
+});
+
 // ── PIX QR CODE ───────────────────────────────────────────────
 
 app.get('/api/pix-qr', requireAuth, async (req, res) => {
@@ -607,7 +751,7 @@ app.post('/api/webhook/pagarme', express.raw({ type: '*/*' }), (req, res) => {
 
 app.get('/api/admin/orders', requireAdmin, (req, res) => {
   const orders = db.prepare(`
-    SELECT o.*, u.name as user_name, u.email as user_email
+    SELECT o.*, u.name as user_name, u.email as user_email, u.phone as user_phone
     FROM orders o
     JOIN users u ON u.id = o.user_id
     ORDER BY o.created_at DESC
