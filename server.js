@@ -125,6 +125,12 @@ const ITEMS = [
   {id:60, cat:'Mesa', name:'Kit mesa posta', desc:'Kit de mesa posta com 8 itens. Tudo pra montar uma mesa de revista: jogo americano, sousplat e aquele capricho que faz a visita querer ficar mais um pouco.', price:110.0, image:'/img/itens/60.jpg', emoji:'🍽️'},
   {id:61, cat:'Mesa', name:'Faqueiro 20 peças #1', desc:'Faqueiro Cambridge em aço inox, 20 peças (serve 4 pessoas). Talheres elegantes pro casal receber com estilo — a mesa de jantar vira momento especial.', price:130.0, image:'/img/itens/61.jpg', emoji:'🍴'},
   {id:62, cat:'Mesa', name:'Faqueiro 20 peças #2', desc:'Faqueiro Cambridge em aço inox, 20 peças (serve 4 pessoas). Um segundo faqueiro pra quando a mesa crescer e a família (e os amigos) aparecerem de vez.', price:130.0, image:'/img/itens/62.jpg', emoji:'🍴'},
+  {id:63, cat:'Mesa', name:'Jogo de sousplat 2 peças', desc:'Jogo de 2 sousplats em crochê, feitos à mão com fio 100% algodão. Pra uma mesa pra dois daquelas em que a comida é desculpa pra ficar conversando até tarde.', price:79.9, image:'/img/itens/63.jpg', emoji:'🍽️'},
+  {id:64, cat:'Mesa', name:'Jogo de sousplat 4 peças', desc:'Jogo de 4 sousplats em crochê, feitos à mão com fio 100% algodão. Pro jantar com os amigos mais íntimos — aqueles que entram em casa e já abrem a geladeira.', price:149.9, image:'/img/itens/64.jpg', emoji:'🍽️'},
+  {id:65, cat:'Mesa', name:'Jogo de sousplat 6 peças', desc:'Jogo de 6 sousplats em crochê, feitos à mão com fio 100% algodão. Pro almoço de família completo, com lugar pra todo mundo e ainda sobra capricho na decoração.', price:189.9, image:'/img/itens/65.jpg', emoji:'🍽️'},
+  {id:66, cat:'Cozinha', name:'Kit 5 panos de prato', desc:'Kit com 5 panos de prato em algodão, com bico de crochê feito à mão e estampas variadas. Aquele detalhinho fofo que faz a cozinha parecer da vovó (no melhor sentido).', price:49.9, image:'/img/itens/66.jpg', emoji:'🧺'},
+  {id:67, cat:'Banho', name:'Jogo de toalhas 2 peças', desc:'Jogo de toalhas com 2 peças (1 toalha de banho + 1 toalha de rosto). 100% algodão, macias, com acabamento delicado pro banheiro do casal ficar uma fofura.', price:150.0, image:'/img/itens/67.jpg', emoji:'🛁'},
+  {id:68, cat:'Banho', name:'Jogo de toalhas 3 peças', desc:'Jogo de toalhas com 3 peças (1 toalha de banho + 1 toalha de lavabo + 1 toalha de mão). Tudo no padrão, do banho rápido às visitas no lavabo.', price:179.9, image:'/img/itens/68.jpg', emoji:'🛁'},
 ];
 
 // ──────────────────────────────────────────────────────────────
@@ -280,8 +286,13 @@ let _mailTransport = null;
 function getMailTransport() {
   if (_mailTransport) return _mailTransport;
   if (!emailConfigured()) return null;
+  // SMTP genérico — funciona com Gmail (default), Zoho ou qualquer outro provedor.
+  // Configure via .env: EMAIL_HOST / EMAIL_PORT / EMAIL_SECURE (opcionais).
+  const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
+  const port = parseInt(process.env.EMAIL_PORT || '465', 10);
+  const secure = (process.env.EMAIL_SECURE || 'true').toLowerCase() !== 'false';
   _mailTransport = nodemailer.createTransport({
-    service: 'gmail',
+    host, port, secure,
     auth: { user: CONFIG.email.user, pass: CONFIG.email.appPassword },
   });
   return _mailTransport;
