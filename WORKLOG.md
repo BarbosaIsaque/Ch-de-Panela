@@ -15,8 +15,8 @@ here whenever you finish something, decide something, or find a bug.
 ---
 
 ## [2026-05-26] — Claude — Access verified (Vercel + Cloudflare) + domain = isana.ia.br
-- **Domain:** `isana.ia.br` (DNS on Cloudflare). Proposed chá subdomain:
-  **`presentes.isana.ia.br`** (pending user OK; `casamento.` is already taken).
+- **Domain:** `isana.ia.br` (DNS on Cloudflare). Chá subdomain **confirmed by user:
+  `cha.isana.ia.br`** (`casamento.` is the couple's other Vite site).
 - **Vercel:** team "Isaque's projects" (`team_X6djzH2eg3IbgVr8yurfn6yk`). Existing
   projects: juda, countdown, fincontrol, leticia-50, **casamento**. ⚠️ "casamento" is a
   **separate Vite app** already serving `casamento.isana.ia.br` — NOT our chá. We must
