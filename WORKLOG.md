@@ -14,6 +14,28 @@ here whenever you finish something, decide something, or find a bug.
 
 ---
 
+## [2026-05-26] — Claude — Backend migrated to Supabase + JWT (tested locally) ✅
+- **What:** Rewrote `server.js` to use **Supabase** (instead of better-sqlite3) and a
+  **stateless JWT cookie** (instead of express-session). New shared modules:
+  `lib/supabase.js`, `lib/auth.js`, `lib/items.js` (77 items). Added deps
+  `@supabase/supabase-js` + `jose`; removed `better-sqlite3`, `connect-sqlite3`,
+  `express-session`, `bcryptjs` (unused now, and better-sqlite3 would break the Vercel
+  build). `server.js` exports the Express `app` and only `listen`s when run directly
+  (ready to wrap for Vercel).
+- **DB function:** `place_order(p_user_id, p_items jsonb)` RPC = atomic checkout
+  (conflict check + order + order_items + reserved_items + clear cart in one tx).
+  Hardened: `execute` revoked from anon/authenticated (only service_role calls it).
+- **Tested locally vs real Supabase — all green:** register→code→verify (cookie login),
+  cart add/list, atomic order, cash, /orders/me, admin (name+phone+pay), reserve conflict
+  (409), admin cancel (cascade frees gift). Test rows truncated afterwards.
+- **Security:** RLS on all tables, no anon policies (service-role-only) — INFO advisories
+  are expected/intended.
+- **Next / open:** Vercel deploy = wrap app + `vercel.json` + set env vars on Vercel
+  (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `JWT_SECRET`, `ADMIN_PASSWORD`,
+  `NODE_ENV=production`) → then Cloudflare DNS for `cha.isana.ia.br`. Email service TBD.
+- **For Codex:** frontend (`public/*`) is essentially unchanged (same `/api` endpoints).
+  Backend (`server.js`, `lib/`) is Claude's workstream — please don't edit those.
+
 ## [2026-05-26] — Claude — Access verified (Vercel + Cloudflare) + domain = isana.ia.br
 - **Domain:** `isana.ia.br` (DNS on Cloudflare). Chá subdomain **confirmed by user:
   `cha.isana.ia.br`** (`casamento.` is the couple's other Vite site).
