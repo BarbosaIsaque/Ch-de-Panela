@@ -26,6 +26,7 @@
 - Frontend hosting: Vercel.
 - DNS: Cloudflare for the Isana domain.
 - Database/backend services: Supabase, replacing local SQLite for production data.
+- Dedicated Supabase project for the chá: **cha-panelas-isana** (ref `fwhnsizxqthbugviraoo`, region sa-east-1). Schema applied 2026-05-26 (users, cart_items, orders, order_items, reserved_items, login_codes; RLS on). The API must use the **service_role** key (server-side only, never in the repo/frontend).
 
 ## Known Local State
 
