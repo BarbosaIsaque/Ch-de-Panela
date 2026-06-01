@@ -568,6 +568,8 @@ async function createInfinitePayLink(order, items) {
   });
   if (!resp.ok) {
     const text = await resp.text();
+    console.error('[InfinitePay] request body:', JSON.stringify(body));
+    console.error('[InfinitePay] response:', resp.status, text);
     throw new Error(`InfinitePay ${resp.status}: ${text}`);
   }
   return resp.json(); // { url, ... }
