@@ -270,3 +270,19 @@ here whenever you finish something, decide something, or find a bug.
   `confirmacao.html` simplificada para mostrar apenas o fluxo dinheiro.
 - **Files:** `server.js`, `public/carrinho.html`, `public/confirmacao.html`.
 - **Next / open:** Testar fluxo ponta-a-ponta (InfinitePay + webhook).
+
+## [2026-06-01] — Claude — PIX dinâmico AbacatePay integrado
+- **What:** PIX com QR code nativo via AbacatePay (`POST /api/pix-charge`). O convidado
+  não sai do site — QR code aparece inline no carrinho. Polling a cada 5s via
+  `GET /api/pix-status?sessionId=X` detecta confirmação do webhook. Webhook em
+  `POST /api/webhooks/abacatepay` valida secret na query string, evento
+  `transparent.completed` → `place_order` RPC → marca pago → limpa carrinho.
+  Coluna `charge_id` adicionada em `payment_sessions`. `ABACATEPAY_API_KEY` setada
+  na Vercel. Chave de teste: `abc_dev_*`. Falta: webhook secret (quando o Isaque
+  cadastrar a URL no painel AbacatePay). Botões no carrinho: PIX (primário), Cartão
+  InfinitePay, Dinheiro.
+- **Files:** `server.js`, `public/carrinho.html`.
+- **Next / open:** Isaque cadastra webhook URL no painel AbacatePay →
+  `https://cha.isana.ia.br/api/webhooks/abacatepay?secret=XXXXX` → me manda o secret
+  → seto `ABACATEPAY_WEBHOOK_SECRET` na Vercel → testar fluxo ponta-a-ponta.
+  Trocar chave `abc_dev_*` pela chave de produção quando pronto.

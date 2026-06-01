@@ -10,7 +10,16 @@ const CONFIG = {
   horaEvento: '13h00',
   endereco: 'Rua Engenheiro Francelino Mota, 417',
 
-  // ── PIX ──────────────────────────────────────────────────────
+  // ── ABACATEPAY (PIX dinâmico com QR code nativo) ─────────────
+  abacate: {
+    apiKey: process.env.ABACATEPAY_API_KEY || '',
+    webhookSecret: process.env.ABACATEPAY_WEBHOOK_SECRET || '',
+    apiUrl: 'https://api.abacatepay.com/v2/transparents/create',
+    expiresIn: 1800, // 30 minutos
+  },
+  get pixEnabled() { return !!this.abacate.apiKey; },
+
+  // ── PIX ESTÁTICO (fallback se AbacatePay não configurado) ─────
   pixKey: '42c0a4b3-7a3d-42c4-980e-9ff9aa658e6c',
   pixNome: 'Ana Clara',
   pixCidade: 'Sao Paulo',
@@ -249,7 +258,8 @@ app.get('/api/auth/me', async (req, res) => {
 // ── PUBLIC ────────────────────────────────────────────────────
 app.get('/api/config', (req, res) => ok(res, {
   nomes: CONFIG.nomes, dataEvento: CONFIG.dataEvento, horaEvento: CONFIG.horaEvento,
-  endereco: CONFIG.endereco, pixKey: CONFIG.pixKey, bank: CONFIG.bank, cardEnabled: CONFIG.cardEnabled,
+  endereco: CONFIG.endereco, pixKey: CONFIG.pixKey, bank: CONFIG.bank,
+  cardEnabled: CONFIG.cardEnabled, pixEnabled: CONFIG.pixEnabled,
 }));
 
 app.get('/api/items/stats', async (req, res) => {
@@ -396,6 +406,145 @@ app.post('/api/admin/orders/:id/cancel', requireAdmin, async (req, res) => {
   // order_items e reserved_items têm ON DELETE CASCADE → liberam o presente
   await supabase.from('orders').delete().eq('id', id);
   return ok(res, { orderId: id, cancelled: true });
+});
+
+// ── ABACATEPAY — criar cobrança PIX dinâmica ─────────────────
+async function createAbacatePixCharge({ amount, description, externalId, customer }) {
+  const { apiKey, apiUrl, expiresIn } = CONFIG.abacate;
+  const body = {
+    method: 'PIX',
+    data: {
+      amount: Math.round(amount * 100), // centavos
+      description,
+      expiresIn,
+      externalId: String(externalId),
+      ...(customer ? { customer } : {}),
+    },
+  };
+  const resp = await fetch(apiUrl, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const json = await resp.json();
+  if (!resp.ok || !json.success) throw new Error(`AbacatePay ${resp.status}: ${JSON.stringify(json.error)}`);
+  return json.data; // { id, brCode, brCodeBase64, amount, expiresAt, status }
+}
+
+// ── PIX DINÂMICO — gerar QR code (AbacatePay) ────────────────
+// Cria payment_session + cobrança AbacatePay. Retorna QR code pra
+// exibir direto no site sem redirecionar o convidado.
+app.post('/api/pix-charge', requireAuth, async (req, res) => {
+  if (!CONFIG.pixEnabled) return fail(res, 503, 'PIX dinâmico não configurado');
+
+  // Limpar sessões expiradas do usuário
+  await supabase.from('payment_sessions')
+    .delete().eq('user_id', req.user.id).lt('expires_at', new Date().toISOString());
+
+  const { data: cartRows } = await supabase.from('cart_items').select('item_id').eq('user_id', req.user.id);
+  if (!cartRows || cartRows.length === 0) return fail(res, 400, 'Carrinho vazio');
+
+  const itemsData = cartRows.map(r => ITEMS.find(i => i.id === r.item_id)).filter(Boolean);
+  if (itemsData.length === 0) return fail(res, 400, 'Nenhum item válido no carrinho');
+
+  const total = itemsData.reduce((s, i) => s + i.price, 0);
+  const sessionItems = itemsData.map(i => ({ item_id: i.id, price: i.price }));
+
+  // Criar sessão temporária
+  const { data: session, error: sessErr } = await supabase.from('payment_sessions')
+    .insert({ user_id: req.user.id, items: sessionItems, total })
+    .select('id').single();
+  if (sessErr || !session) return fail(res, 500, 'Erro ao criar sessão');
+
+  const names = itemsData.map(i => i.name).join(', ');
+  const description = names.length > 100 ? names.slice(0, 97) + '…' : names;
+
+  try {
+    const charge = await createAbacatePixCharge({
+      amount: total,
+      description: `Chá de Panelas — ${description}`,
+      externalId: session.id,
+      customer: { name: req.user.name, email: req.user.email },
+    });
+
+    // Guardar charge id na sessão para lookup no webhook
+    await supabase.from('payment_sessions').update({ charge_id: charge.id }).eq('id', session.id);
+
+    return ok(res, {
+      sessionId: session.id,
+      chargeId: charge.id,
+      brCode: charge.brCode,
+      brCodeBase64: charge.brCodeBase64,
+      total,
+      expiresAt: charge.expiresAt,
+    });
+  } catch (e) {
+    await supabase.from('payment_sessions').delete().eq('id', session.id);
+    console.error('[AbacatePay]', e.message);
+    return fail(res, 502, 'Não foi possível gerar o QR Code PIX. Tente novamente.');
+  }
+});
+
+// ── PIX STATUS — polling do frontend ─────────────────────────
+app.get('/api/pix-status', requireAuth, async (req, res) => {
+  const { sessionId } = req.query;
+  if (!sessionId) return fail(res, 400, 'sessionId obrigatório');
+  const { data: session } = await supabase.from('payment_sessions')
+    .select('used, user_id').eq('id', sessionId).eq('user_id', req.user.id).maybeSingle();
+  if (!session) return fail(res, 404, 'Sessão não encontrada');
+  return ok(res, { paid: session.used === true });
+});
+
+// ── WEBHOOK ABACATEPAY — confirmar pagamento PIX ─────────────
+// AbacatePay envia POST com evento transparent.completed
+// Valida via secret na query string + HMAC-SHA256 no header
+app.post('/api/webhooks/abacatepay', express.json(), async (req, res) => {
+  // Validar secret na query string
+  const { secret } = req.query;
+  if (CONFIG.abacate.webhookSecret && secret !== CONFIG.abacate.webhookSecret) {
+    return res.status(401).json({ error: 'Secret inválido' });
+  }
+
+  const { event, data } = req.body || {};
+  if (event !== 'transparent.completed') return res.status(200).json({ ok: true, ignored: true });
+
+  const externalId = data?.transparent?.externalId || data?.externalId;
+  if (!externalId) return res.status(400).json({ error: 'externalId ausente' });
+
+  const { data: session } = await supabase.from('payment_sessions')
+    .select('*').eq('id', externalId).maybeSingle();
+
+  if (!session) return res.status(400).json({ error: 'Sessão não encontrada' });
+  if (session.used) return res.status(200).json({ ok: true, already: true });
+
+  // Criar pedido e reservar itens
+  const { data: orderId, error: orderErr } = await supabase.rpc('place_order', {
+    p_user_id: session.user_id, p_items: session.items,
+  });
+
+  if (orderErr) {
+    console.error('[AbacatePay webhook] place_order:', orderErr.message);
+    if ((orderErr.message || '').includes('CONFLICT')) {
+      await supabase.from('payment_sessions').update({ used: true }).eq('id', session.id);
+      return res.status(200).json({ ok: false, reason: 'items_already_reserved' });
+    }
+    return res.status(400).json({ error: 'Erro ao criar pedido' });
+  }
+
+  // Marcar como pago
+  const paidAmount = data?.transparent?.amount ? data.transparent.amount / 100 : session.total;
+  await supabase.from('orders').update({
+    status: 'paid',
+    payment_method: 'pix_abacatepay',
+    paid_amount: paidAmount,
+  }).eq('id', orderId);
+
+  // Limpar carrinho e sessão
+  await supabase.from('cart_items').delete().eq('user_id', session.user_id);
+  await supabase.from('payment_sessions').update({ used: true }).eq('id', session.id);
+
+  console.log(`[AbacatePay] Pedido #${orderId} pago via PIX (R$ ${paidAmount})`);
+  return res.status(200).json({ ok: true, orderId });
 });
 
 // ── INFINITEPAY — criar link de pagamento ────────────────────
