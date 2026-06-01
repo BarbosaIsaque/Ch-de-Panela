@@ -122,6 +122,33 @@
     });
   }
 
+  // ── Cart CTA modal ───────────────────────────────────────────
+  function showCartCTA(itemName) {
+    const overlay = document.createElement('div');
+    overlay.className = 'cart-cta-overlay';
+    overlay.innerHTML = `
+      <div class="cart-cta-box">
+        <div class="cart-cta-icon">🎁</div>
+        <p class="cart-cta-title">${escapeHtml(itemName)} reservado!</p>
+        <p class="cart-cta-sub">Deseja finalizar agora ou continuar escolhendo?</p>
+        <div class="cart-cta-actions">
+          <button class="btn-cta-checkout" id="cta-checkout">Finalizar compra →</button>
+          <button class="btn-cta-continue" id="cta-continue">✦ Continuar escolhendo ✦</button>
+        </div>
+      </div>`;
+
+    function dismiss() {
+      overlay.classList.add('removing');
+      overlay.addEventListener('animationend', () => overlay.remove(), { once: true });
+    }
+
+    overlay.addEventListener('click', e => { if (e.target === overlay) dismiss(); });
+    overlay.querySelector('#cta-checkout').addEventListener('click', () => { window.location.href = '/carrinho.html'; });
+    overlay.querySelector('#cta-continue').addEventListener('click', dismiss);
+
+    document.body.appendChild(overlay);
+  }
+
   // ── Init on DOM ready ────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', async () => {
     await initNav();
@@ -131,6 +158,7 @@
   // ── Expose public API ────────────────────────────────────────
   window.App = {
     showToast,
+    showCartCTA,
     formatPrice,
     updateCartCount,
     apiFetch,

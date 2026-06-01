@@ -14,6 +14,17 @@ here whenever you finish something, decide something, or find a bug.
 
 ---
 
+## [2026-06-01] — Claude — CTA de carrinho + pagamento unificado
+- **What:** (1) Modal CTA ao adicionar item ao carrinho (`showCartCTA` em `app.js` +
+  `.cart-cta-*` em `style.css`): sheet bottom-up com "Finalizar compra →" e
+  "✦ Continuar escolhendo ✦" (bold, destaque). Dismiss ao clicar fora ou no "continuar".
+  (2) Página de confirmação reformulada: removidas as 3 abas (PIX/Cartão/Dinheiro),
+  substituídas por 2 botões — "💳 Pagar — PIX / Débito / Crédito" (InfinitePay, primário)
+  e "💵 Vou pagar em dinheiro no dia do chá" (outline, secundário).
+- **Files:** `public/js/app.js`, `public/css/style.css`, `public/item.html`,
+  `public/confirmacao.html`.
+- **Next / open:** Testar fluxo ponta-a-ponta no site.
+
 ## [2026-06-01] — Claude — Integração InfinitePay implementada
 - **What:** Integração InfinitePay Checkout via API REST (`POST https://api.checkout.infinitepay.io/links`).
   - `CONFIG.infinitepay` com `handle` (env `INFINITEPAY_HANDLE`), `apiUrl`, `siteUrl` (env `SITE_URL`).

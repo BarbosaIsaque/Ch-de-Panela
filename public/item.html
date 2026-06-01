@@ -176,8 +176,8 @@
             giftBtn.textContent = 'Adicionando…';
             const res = await App.apiFetch('/api/cart', { method: 'POST', body: { itemId: item.id } });
             if (res.ok) {
-              App.showToast('Presente adicionado ao carrinho! 🎁', 'success');
               App.updateCartCount();
+              App.showCartCTA(item.name);
               loadItem();
             } else {
               App.showToast(res.error || 'Erro ao adicionar', 'error');
