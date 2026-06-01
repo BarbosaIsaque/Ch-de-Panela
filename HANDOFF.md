@@ -1,175 +1,163 @@
 # HANDOFF — Chá de Panelas (Isana)
 
 > **Para o próximo agente / próximo chat.** Leia este arquivo **antes** de qualquer
-> outra coisa, depois `WORKLOG.md` (linha do tempo completa), `AGENTS.md`,
-> `CLAUDE.md` e `MEMORY.md`.
+> outra coisa, depois `WORKLOG.md` (linha do tempo completa), `AGENTS.md` e `CLAUDE.md`.
 >
-> Última atualização: 2026-05-27 — by Claude. Ana vai abrir num **novo chat**; o
-> trabalho deve continuar exatamente daqui.
+> Última atualização: 2026-06-01 — by Claude.
 
 ---
 
 ## TL;DR
 
-- **O site JÁ ESTÁ NO AR** em `https://cha-panelas.vercel.app` (testado ponta-a-ponta
-  contra o Supabase de produção). 🎉
-- Stack: **Vercel** (frontend estático + 1 função Express serverless) + **Supabase**
-  Postgres + envio de e-mail via **Brevo** (HTTP API).
-- **O que falta** é só **DNS no Cloudflare** (4 registros pro Brevo + 1 CNAME pro
-  subdomínio do chá) — depende do casal autorizar / colocar.
-- Quando o DNS estiver pronto, são ~5 passos pra deixar pronto pro público:
-  autenticar domínio no Brevo → setar `BREVO_API_KEY`/`EMAIL_FROM` na Vercel →
-  remover `SHOW_DEV_CODE` → redeploy → CNAME `cha.isana.ia.br` → testar.
+- **Site 100% no ar** em `https://cha.isana.ia.br` ✅
+- Stack: **Vercel** + **Supabase** Postgres + **Brevo** (e-mail OTP) + **AbacatePay** (PIX dinâmico) + **InfinitePay** (Cartão/Débito)
+- Login por OTP via e-mail funcionando, remetente `cha@isana.ia.br`
+- Pagamento PIX com QR code inline (sem sair do site) via AbacatePay
+- Pagamento Cartão/Débito via InfinitePay (redireciona pro checkout deles)
+- GitHub conectado na Vercel → auto-deploy a cada push na `main`
+- **Pendente:** setar `ABACATEPAY_WEBHOOK_SECRET` na Vercel + trocar chave dev→prod do AbacatePay
 
 ---
 
-## ⚠️ Aviso de segurança ATUAL
+## Estado atual (2026-06-01)
 
-O Vercel hoje está com `SHOW_DEV_CODE=true`. Isso faz o servidor **devolver o código
-de login na resposta HTTP** (pra dar pra testar antes do e-mail estar pronto).
-**Qualquer pessoa que acessar `cha-panelas.vercel.app` hoje consegue logar como
-qualquer e-mail.** É **só pra testes**. Antes de divulgar o link real
-(`cha.isana.ia.br`), tem que **remover essa flag e redeployar**.
+### ✅ Concluído
+- Site no ar em `https://cha.isana.ia.br` com SSL
+- DNS no Cloudflare (5 registros: DKIM Brevo x2, TXT verificação, DMARC, CNAME cha)
+- SPF corrigido (`v=spf1 include:spf.brevo.com ~all`)
+- Brevo autenticado, e-mail OTP chegando no Hotmail e Gmail
+- Login OTP funcional — código chega em `cha@isana.ia.br`
+- Carrinho, lista de presentes, checkout
+- PIX dinâmico AbacatePay: QR code inline no carrinho, polling de status a cada 5s
+- Cartão/Débito via InfinitePay: redireciona pro checkout deles
+- Webhook AbacatePay: `POST /api/webhooks/abacatepay` — cria pedido + reserva itens + limpa carrinho
+- Webhook InfinitePay: `POST /api/webhooks/infinitepay` — mesmo fluxo
+- Carrinho intacto até confirmação de pagamento (pedido só é criado no webhook)
+- CTA modal ao adicionar item ao carrinho ("Finalizar" / "Continuar escolhendo")
+- Admin em `/admin.html`
+- GitHub repo `isaquediasdev/Ch-de-Panela` conectado na Vercel (auto-deploy)
 
----
-
-## Fatos do projeto
-
-- **Repo:** `isaquediasdev/Ch-de-Panela` (branch `main`).
-- **Casal:** Ana Clara & Isaque. **Evento:** 20/06/2026.
-- **Domínio:** `isana.ia.br` (DNS na **Cloudflare**).
-- **Subdomínio do chá:** `cha.isana.ia.br` (confirmado pelo casal).
-- **Outro site:** `casamento.isana.ia.br` (projeto Vite separado — **não tocar**).
-- Valores **simbólicos**, nunca preço de loja. Textos em **português**.
-
----
-
-## Stack ALVO (= o que está implementado HOJE)
-
-| Camada | Onde | Estado |
-|---|---|---|
-| Frontend estático | `public/` | ✅ servido pela Vercel |
-| API | função serverless única (`api/index.js` → reexporta `server.js`) | ✅ no ar |
-| Banco | **Supabase** Postgres `cha-panelas-isana` | ✅ |
-| Sessão | **JWT em cookie httpOnly** (`lib/auth.js`, jose **^5**) | ✅ |
-| E-mail OTP | **Brevo** API HTTP (fallback SMTP) | ⚙️ código pronto; falta domínio autenticado |
-| Hospedagem | **Vercel** projeto `cha-panelas` | ✅ deployed |
-| DNS | **Cloudflare** | ⏳ falta inserir registros |
+### ⏳ Pendente
+1. **Setar `ABACATEPAY_WEBHOOK_SECRET=isana2026chaPix` na Vercel** → redeploy
+2. **Trocar chave AbacatePay de dev → produção** (a atual `abc_dev_*` é modo teste)
+3. Testar fluxo PIX ponta-a-ponta (QR code → pagamento → webhook → item some da lista)
 
 ---
 
 ## Identificadores / refs / contas
 
-### Vercel (MCP funciona; CLI também — logado como `isaquebarbosadev-1000`)
+### Vercel
 - **Time:** `Isaque's projects` → `team_X6djzH2eg3IbgVr8yurfn6yk`
-- **Projeto do chá:** `cha-panelas` → **`prj_qLWJK1NfQUoBRVCe8oblYGq779XE`**
-- **URL atual (teste):** `https://cha-panelas.vercel.app`
-- ⚠️ Deploy hoje é via **CLI** (`vercel deploy --prod`). Não está ligado ao GitHub.
-  Se quiserem auto-deploy: Settings → Git → Connect Repository →
-  `isaquediasdev/Ch-de-Panela`.
+- **Projeto:** `cha-panelas` → `prj_qLWJK1NfQUoBRVCe8oblYGq779XE`
+- **URL produção:** `https://cha.isana.ia.br`
+- **Deploy:** `vercel deploy --prod` ou push no GitHub (auto-deploy configurado)
+- **CLI:** logado como `isaquebarbosadev-1000`
 
-### Supabase (MCP funciona)
-- **Projeto:** `cha-panelas-isana` → ref **`fwhnsizxqthbugviraoo`**
+### Supabase
+- **Projeto:** `cha-panelas-isana` → ref `fwhnsizxqthbugviraoo`
 - **URL:** `https://fwhnsizxqthbugviraoo.supabase.co`
 - **Região:** `sa-east-1` (São Paulo) · **Org:** `iofkieyvotvyknoukvpu`
-- ⚠️ Outro projeto chamado `juda` existe na mesma org — **NÃO USAR** (é outro sistema).
+- ⚠️ Outro projeto `juda` na mesma org — **NÃO USAR**
 
-### Brevo (envio do código)
-- Conta **Isana** (`isaquebarbosa.dev@gmail.com`), free 300/dia.
-- Remetente já verificado (e-mail individual): `isaquebarbosa.dev@gmail.com` (id 1).
-- Domínio `isana.ia.br` adicionado → id `6a1655c39ca547d25903c24f`,
-  **`authenticated:false`** até os DNS abaixo serem inseridos.
-- API key no `.env` local (gitignored). **Não setada na Vercel ainda** — quando ligar
-  lá, o servidor passa a enviar e-mail pra valer (e a flag `SHOW_DEV_CODE` deve sair).
-- SMTP relay (caso queira evitar a API): user `aca682001@smtp-brevo.com`,
-  `smtp-relay.brevo.com:587` (STARTTLS).
-- ⚠️ A restrição **"Authorised IPs"** do Brevo foi DESLIGADA pelo casal (Vercel não tem
-  IP de saída fixo). Não religar.
+### Brevo (e-mail OTP)
+- Conta `isaquebarbosa.dev@gmail.com`, free 300/dia
+- Domínio `isana.ia.br` **autenticado** ✅
+- Remetente: `cha@isana.ia.br`
+- ⚠️ "Authorised IPs" DESLIGADO — não religar (Vercel não tem IP fixo)
 
-### Cloudflare (MCP é o de Workers/D1/KV/R2; **não edita DNS**)
-- Conta: `Isaquebarbosa.dev@gmail.com's Account` → `cca2706351d43ee2c7ac894059541c97`.
-- **Para inserir os registros DNS** abaixo, o casal precisa:
-  - usar o **painel Cloudflare** (mais simples), OU
-  - gerar um **API Token** com permissão `Zone:DNS:Edit` na zona `isana.ia.br` e me
-    passar (eu insiro por curl/API).
+### Cloudflare (DNS)
+- Conta: `Isaquebarbosa.dev@gmail.com` → `cca2706351d43ee2c7ac894059541c97`
+- Zona `isana.ia.br` — todos os registros necessários já inseridos
+- MCP Cloudflare só cobre Workers/D1/KV/R2 — pra DNS usar API REST ou painel
+
+### AbacatePay (PIX dinâmico)
+- **API Key (DEV):** `abc_dev_BLN3Fjq6GkSMAg4CXkbmDM2U` — modo teste
+- **Webhook URL cadastrada:** `https://cha.isana.ia.br/api/webhooks/abacatepay`
+- **Webhook Secret:** `isana2026chaPix` ← ⚠️ ainda NÃO setado na Vercel
+- ⚠️ Trocar chave dev pela de **produção** antes do evento
+
+### InfinitePay (Cartão/Débito)
+- **Handle:** `isaque-barbosa-dias`
+- **Webhook URL cadastrada:** `https://cha.isana.ia.br/api/webhooks/infinitepay`
+- **Redirect URL:** `https://cha.isana.ia.br`
 
 ### GitHub
-- CLI logada como `isaquediasdev`. Admin no repo.
+- Repo: `isaquediasdev/Ch-de-Panela` (privado), branch `main`
+- CLI logada como `isaquediasdev`
 
 ---
 
-## 🔧 Registros DNS PENDENTES no Cloudflare (mais importante)
+## Variáveis de ambiente na Vercel (Production)
 
-Inserir **todos como "DNS only" (nuvem cinza, sem proxy)**:
-
-### Pro Brevo autenticar `isana.ia.br` (envio de e-mail)
-
-| Tipo | Nome | Valor | Observação |
-|---|---|---|---|
-| `CNAME` | `brevo1._domainkey` | `b1.isana-ia-br.dkim.brevo.com` | DKIM #1 |
-| `CNAME` | `brevo2._domainkey` | `b2.isana-ia-br.dkim.brevo.com` | DKIM #2 |
-| `TXT` | `@` (apex) | `brevo-code:7862b9f89b71bb19475e6628497e6a36` | verificação |
-| `TXT` | `_dmarc` | `v=DMARC1; p=none; rua=mailto:rua@dmarc.brevo.com` | opcional, DMARC já está true |
-
-Depois de inserir, voltar no painel Brevo → Senders, Domains & Dedicated IPs →
-clicar **Authenticate this domain**.
-
-### Pro subdomínio do chá apontar pra Vercel (só depois de cuidar do SHOW_DEV_CODE)
-
-| Tipo | Nome | Valor | Observação |
-|---|---|---|---|
-| `CNAME` | `cha` | `cname.vercel-dns.com` | **DNS only** (nuvem cinza) |
-
-E no painel Vercel: Project `cha-panelas` → Settings → Domains → adicionar
-`cha.isana.ia.br`.
+| Variável | Status | Observação |
+|---|---|---|
+| `SUPABASE_URL` | ✅ setada | |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ setada | |
+| `JWT_SECRET` | ✅ setada | |
+| `ADMIN_PASSWORD` | ✅ setada | |
+| `BREVO_API_KEY` | ✅ setada | |
+| `EMAIL_FROM` | ✅ setada | `cha@isana.ia.br` |
+| `INFINITEPAY_HANDLE` | ✅ setada | `isaque-barbosa-dias` |
+| `SITE_URL` | ✅ setada | `https://cha.isana.ia.br` |
+| `ABACATEPAY_API_KEY` | ✅ setada | chave DEV — trocar pela de prod |
+| `ABACATEPAY_WEBHOOK_SECRET` | ❌ **FALTA** | `isana2026chaPix` |
 
 ---
 
-## Variáveis de ambiente
-
-### No `.env` LOCAL (gitignored, não commitar)
-- `SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY` · `JWT_SECRET` · `ADMIN_PASSWORD`
-- `EMAIL_FROM=cha@isana.ia.br` · `BREVO_API_KEY=xkeysib-…`
-- `EMAIL_HOST=smtp-relay.brevo.com` · `EMAIL_PORT=587` · `EMAIL_SECURE=false`
-  · `EMAIL_USER=` · `EMAIL_APP_PASSWORD=` (fallback SMTP)
-
-### Já setadas na Vercel (Production)
-Foi feito via CLI (`vercel env add`, logado como `isaquebarbosadev-1000`):
-- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `JWT_SECRET`, `ADMIN_PASSWORD`,
-  `SHOW_DEV_CODE=true`.
-
-### Ainda PRECISAM ser setadas na Vercel (quando o DNS Brevo passar)
-- `BREVO_API_KEY` (do `.env` local)
-- `EMAIL_FROM` (= `cha@isana.ia.br`)
-- **REMOVER** `SHOW_DEV_CODE` (ou setar `false`) → daí redeploy.
-
-⚠️ O MCP da Vercel **não tem ferramenta de env var**. Tem que ser CLI (`vercel env add NOME production`) ou painel (Project → Settings → Environment Variables → Production).
-
----
-
-## Banco (Supabase)
-
-### Schema `public`
+## Banco (Supabase) — schema atual
 
 | Tabela | Função |
 |---|---|
 | `users` | id, name, email (único), phone, created_at |
 | `cart_items` | user_id, item_id, unique(user_id, item_id) |
-| `orders` | id, user_id, total, status (`pending`/`paid`), payment_method, external_payment_id |
+| `orders` | id, user_id, total, status (`pending`/`paid`), payment_method, paid_amount, external_payment_id |
 | `order_items` | snapshot do preço. `ON DELETE CASCADE` |
 | `reserved_items` | item_id PK, order_id. `ON DELETE CASCADE` (cancelar libera) |
 | `login_codes` | OTP: email, code, name, phone, expires_at, used |
+| `payment_sessions` | id (uuid PK), user_id, items (jsonb), total, charge_id, expires_at (30min), used |
 
-Todas com **RLS on, sem policies** = só `service_role` acessa. Esperado.
+Todas com **RLS on, sem policies** = só `service_role` acessa.
 
 ### Função RPC
+- `place_order(p_user_id bigint, p_items jsonb)` → checkout atômico (confere conflito → cria order → order_items → reserved_items → limpa cart)
 
-- `place_order(p_user_id bigint, p_items jsonb)` → checkout atômico (confere conflito
-  → cria order → order_items → reserved_items → limpa cart). `EXECUTE` revogado de
-  `anon`/`authenticated` (só `service_role` chama).
+---
 
-### Migrations aplicadas
-1. `initial_schema` · 2. `place_order_function` · 3. `lock_down_place_order`
+## Fluxo de pagamento
+
+### PIX (AbacatePay) — inline, sem sair do site
+```
+Carrinho → "📱 Pagar com PIX"
+  → POST /api/pix-charge
+    → cria payment_session (30min TTL)
+    → cria cobrança AbacatePay (retorna brCode + brCodeBase64)
+  → QR code exibido inline no carrinho
+  → Convidado paga no banco
+  → AbacatePay → POST /api/webhooks/abacatepay?secret=isana2026chaPix
+    → place_order RPC → reserva itens → limpa carrinho
+    → order.status = 'paid'
+  → Frontend polling GET /api/pix-status → detecta em até 5s → celebra 🎉
+```
+
+### Cartão/Débito (InfinitePay) — redireciona
+```
+Carrinho → "💳 Cartão / Débito — via InfinitePay"
+  → POST /api/card-link
+    → cria payment_session (30min TTL)
+    → cria link InfinitePay (order_nsu = session.id)
+  → Redireciona convidado pro checkout InfinitePay
+  → Paga → InfinitePay → POST /api/webhooks/infinitepay
+    → place_order RPC → reserva itens → limpa carrinho
+    → order.status = 'paid'
+```
+
+### Dinheiro — fluxo direto
+```
+Carrinho → "💵 Vou pagar em dinheiro no dia"
+  → POST /api/orders → place_order → reserva itens imediatamente
+  → POST /api/orders/:id/cash → payment_method = 'dinheiro'
+  → confirmacao.html (status manual pelo admin)
+```
 
 ---
 
@@ -177,115 +165,56 @@ Todas com **RLS on, sem policies** = só `service_role` acessa. Esperado.
 
 ```
 /
-├── server.js              # Express + Supabase + JWT. Exporta `app`. Listen só se rodado direto.
+├── server.js              # Express + toda a lógica. Exporta `app`.
 ├── api/
-│   └── index.js           # Entrypoint da Vercel: module.exports = require('../server.js')
-├── vercel.json            # Rewrites /api/(.*) → /api/index; public/ é estático.
-├── .vercelignore          # Não sobe .env, .git, *.db, node_modules, *.md, docs/
-├── .gitignore             # +.vercel adicionado
+│   └── index.js           # Entrypoint Vercel: module.exports = require('../server.js')
+├── vercel.json            # Rewrites /api/(.*) → /api/index
 ├── lib/
-│   ├── supabase.js        # cliente com service_role
-│   ├── auth.js            # cookie JWT (jose ^5)
-│   └── items.js           # 77 itens
-├── public/                # frontend estático (intacto desde o legado)
-├── package.json           # deps: express, @supabase/supabase-js, jose ^5,
-│                          #       dotenv, qrcode, pix-utils, nodemailer
-├── .env                   # GITIGNORED — segredos
-├── AGENTS.md / CLAUDE.md  # regras compartilhadas (regra de log obrigatória)
-├── WORKLOG.md             # diário cronológico — LEIA aqui antes de mexer
-├── MEMORY.md              # fatos do projeto
+│   ├── supabase.js        # cliente service_role
+│   ├── auth.js            # cookie JWT (jose ^5 — NÃO subir pra ^6)
+│   └── items.js           # 77 itens do catálogo
+├── public/
+│   ├── index.html         # Hero + convite
+│   ├── lista.html         # Catálogo de presentes
+│   ├── item.html          # Detalhe do item + CTA modal ao adicionar
+│   ├── carrinho.html      # Carrinho + botões de pagamento (PIX/Cartão/Dinheiro)
+│   ├── confirmacao.html   # Só para fluxo dinheiro
+│   ├── login.html / cadastro.html / minha-conta.html / meus-pedidos.html
+│   ├── admin.html         # Painel admin
+│   ├── js/app.js          # Utilitários compartilhados + showCartCTA
+│   └── css/style.css      # Estilos + .cart-cta-* (modal CTA)
+├── .env                   # GITIGNORED — segredos locais
+├── .gitignore             # node_modules, *.db, .env, .vercel
+├── AGENTS.md / CLAUDE.md  # Regras dos agentes (LEIA antes de qualquer task)
+├── WORKLOG.md             # Diário cronológico — LEIA antes de começar
 └── HANDOFF.md             # ESTE arquivo
 ```
 
 ---
 
-## ⚠️ Gotchas (cuidado!)
+## ⚠️ Gotchas
 
-- **`jose` precisa ser `^5`** (não `^6`). v6 é ESM-only e quebra o `require()` na
-  Vercel — toda rota `/api/*` virava 500. Local funciona pq Node 22+ permite
-  require-ESM, mas Vercel não. **Se subir pra ^6 de novo, vai quebrar.**
-- **`SHOW_DEV_CODE` é INSEGURO em produção** — qualquer um loga como qualquer e-mail.
-  Manter `true` SÓ no domínio `.vercel.app` enquanto testa. **Remover antes do
-  `cha.isana.ia.br` ir pro ar.**
-- A Vercel força `NODE_ENV=production`. Foi por isso que precisou da flag explícita
-  (o gate antigo `NODE_ENV!==production` nunca rodava lá).
-- `.env` **nunca commitar** (já está no .gitignore). Tem segredos do Supabase e Brevo.
-- `pix-utils` está fixado em `1.0.0` (versões maiores quebravam).
-- `better-sqlite3`/`connect-sqlite3`/`express-session`/`bcryptjs` foram **REMOVIDOS** —
-  não rodam em serverless e travariam o build. Não reinstalar.
-- Cloudflare MCP atual **não edita DNS** — Workers/D1/KV/R2 só. Pra DNS: token ou painel.
+- **`jose` precisa ser `^5`** — v6 é ESM-only, quebra na Vercel
+- **AbacatePay chave `abc_dev_*`** é modo teste — trocar pela prod antes do evento
+- **`ABACATEPAY_WEBHOOK_SECRET`** ainda não está na Vercel — PIX webhook não valida até setar
+- `.env` **nunca commitar** — tem segredos do Supabase, Brevo e AbacatePay
+- `pix-utils` fixado em `1.0.0` — versões maiores quebram
+- `better-sqlite3`/`express-session`/`bcryptjs` **removidos** — não reinstalar (não rodam serverless)
+- Cloudflare MCP não edita DNS — usar API REST (`curl`) com token `Zone:DNS:Edit`
 
 ---
 
-## ✅ Já testado em produção (cha-panelas.vercel.app)
+## 🚀 Próximos passos imediatos
 
-Fluxo end-to-end contra Supabase real:
-- Estático: 8 páginas (200).
-- API pública: `/api/config`, `/api/items`, `/api/items/stats` (200).
-- Auth: cadastro → devCode → verify (cookie JWT) → `/api/auth/me`.
-- Carrinho: add/list.
-- Checkout: pedido atômico via `place_order` RPC.
-- Admin: senha certa 200 / errada 403.
-- Banco **truncado** (`users`, `orders`, `login_codes` cascade) → base limpa pro launch.
-
----
-
-## 🚀 PRÓXIMOS PASSOS (faça nesta ordem)
-
-1. **Casal insere os 4 registros DNS no Cloudflare** (tabela acima — Brevo).
-2. Brevo → "Authenticate this domain" (vai verificar os CNAMEs/TXT). Status deve
-   passar pra `authenticated:true`.
-3. Cadastrar `BREVO_API_KEY` e `EMAIL_FROM` na **Vercel** (Production).
-4. **Remover** `SHOW_DEV_CODE` da Vercel (ou setar `false`).
-5. Redeploy: `vercel deploy --prod` (ou push se o GitHub estiver ligado).
-6. Teste real: cadastrar com e-mail próprio → o código tem que **chegar no inbox** de
-   `cha@isana.ia.br`-from. Logar normalmente. `/api/auth/...` não deve devolver
-   `devCode` mais.
-7. Casal adiciona o **CNAME `cha` → `cname.vercel-dns.com`** no Cloudflare.
-8. Vercel → projeto `cha-panelas` → Settings → Domains → adicionar `cha.isana.ia.br`.
-   Esperar SSL (~minutos).
-9. Acessar `https://cha.isana.ia.br` → fluxo completo.
-10. (Opcional, mas bom) **Conectar o repo GitHub** na Vercel pra auto-deploy nos
-    próximos pushes. Não obrigatório.
-
----
-
-## Coordenação dos agentes (Claude + Codex)
-
-**REGRA DE OURO** (em `AGENTS.md` e `CLAUDE.md`):
-- Terminou algo / achou bug / decidiu algo → **registrar em `WORKLOG.md`**.
-- Antes de qualquer task → **ler `WORKLOG.md`**.
-
-Divisão sugerida:
-- **Claude:** backend (`server.js`, `lib/`, `api/`), banco, deploy.
-- **Codex:** frontend (`public/`), conteúdo, integrações de produto.
-
-O frontend está praticamente intacto — bate nos mesmos endpoints `/api/*`. Não deve
-precisar de mudança pra ficar pronto.
-
----
-
-## Mapa de commits
-
-```
-94092c3 Migra backend para Supabase + login por cookie JWT  ← último commit
-8c8b60d Confirma subdomínio do chá: cha.isana.ia.br
-ebc06b2 Registra acessos verificados (Vercel/Cloudflare), domínio e pendências
-0c75865 Cria projeto Supabase dedicado e schema inicial do chá
-6524a29 Estrutura de coordenação dos agentes (Claude + Codex)
-```
-
-**⚠️ ATENÇÃO:** o trabalho do deploy (api/index.js, vercel.json, .vercelignore,
-mudanças em server.js, package.json, .gitignore) e as últimas entradas do WORKLOG
-**ainda NÃO estão no commit** — vão entrar junto com este HANDOFF, no próximo commit.
+1. **Setar `ABACATEPAY_WEBHOOK_SECRET=isana2026chaPix` na Vercel** → `vercel env add ABACATEPAY_WEBHOOK_SECRET production` → redeploy
+2. **Testar fluxo PIX ponta-a-ponta** no `https://cha.isana.ia.br`
+3. Quando for ao ar de verdade: trocar `ABACATEPAY_API_KEY` pela chave de produção do AbacatePay
 
 ---
 
 ## Como abrir no novo chat
 
-Cole a linha:
-> *"Leia HANDOFF.md primeiro, depois WORKLOG.md, AGENTS.md, CLAUDE.md e MEMORY.md.
-> Continue a partir da seção 'PRÓXIMOS PASSOS' do HANDOFF — o site já está deployed
-> em cha-panelas.vercel.app, falta DNS no Cloudflare."*
+> *"Leia HANDOFF.md primeiro, depois WORKLOG.md. O site está no ar em cha.isana.ia.br.
+> Falta setar ABACATEPAY_WEBHOOK_SECRET na Vercel e testar o fluxo PIX ponta-a-ponta."*
 
 Boa! 💝
