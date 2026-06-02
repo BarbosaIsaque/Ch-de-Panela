@@ -144,7 +144,7 @@
 
     overlay.addEventListener('click', e => { if (e.target === overlay) dismiss(); });
     overlay.querySelector('#cta-checkout').addEventListener('click', () => { window.location.href = '/carrinho.html'; });
-    overlay.querySelector('#cta-continue').addEventListener('click', dismiss);
+    overlay.querySelector('#cta-continue').addEventListener('click', () => { window.location.href = '/lista.html'; });
 
     document.body.appendChild(overlay);
   }
