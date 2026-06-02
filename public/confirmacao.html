@@ -40,8 +40,22 @@
     async function loadConfirmation() {
       const page = document.getElementById('confirm-page');
       const params = new URLSearchParams(window.location.search);
+      const paidViaGateway = params.get('paid') === '1'; // veio do InfinitePay
+
+      // Se veio do gateway já pago, mostra sucesso direto sem buscar pedido
+      if (paidViaGateway) {
+        page.innerHTML = `
+          <div class="confirm-icon">🎉</div>
+          <h1>Pagamento confirmado!</h1>
+          <p class="lead">Seu presente foi reservado com sucesso. Muito obrigada pela sua participação! 💝</p>
+          <a href="/meus-pedidos.html" class="btn btn-primary" style="margin-bottom:12px;">Ver meus pedidos</a>
+          <a href="/lista.html" class="btn btn-outline" style="margin-bottom:12px;">Ver Lista de Presentes</a>
+        `;
+        return;
+      }
+
       const orderIdRaw = params.get('orderId');
-      const orderId = parseInt(orderIdRaw, 10); // UUID da InfinitePay vira NaN → fallback pro mais recente
+      const orderId = parseInt(orderIdRaw, 10);
 
       const [ordersRes, configRes] = await Promise.all([
         App.apiFetch('/api/orders/me'),
@@ -51,7 +65,6 @@
       if (!ordersRes.ok) { window.location.href = '/login.html'; return; }
 
       const orders = ordersRes.data;
-      // orderId pode ser UUID (InfinitePay) — parseInt retorna NaN → pega o mais recente
       const order = (orderId && !isNaN(orderId) ? orders.find(o => o.id === orderId) : null) || orders[0];
 
       if (!order) {
@@ -65,14 +78,13 @@
       }
 
       const cfg = configRes.ok ? configRes.data : {};
-      const bank = cfg.bank || {};
 
       page.innerHTML = `
         <div class="confirm-icon">💝</div>
         <h1>Obrigada pelo seu presente!</h1>
         <p class="lead">
           ${order.items.length === 1 ? 'Seu presente foi' : 'Seus presentes foram'} reservado${order.items.length === 1 ? '' : 's'} com sucesso.
-          Agora escolha como enviar o valor e finalize sua participação!
+          É só trazer o valor no dia do chá!
         </p>
 
         <div class="order-items-list">
