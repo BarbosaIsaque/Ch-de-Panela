@@ -890,23 +890,64 @@ footer a { color: var(--gold-light); }
   .admin-summary { grid-template-columns: repeat(2, 1fr); }
 }
 
-@media (max-width: 600px) {
-  .gift-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+@media (max-width: 640px) {
+  /* NAV — esconde link de texto no mobile, mantém carrinho */
+  .nav-inner { padding: 0 16px; gap: 10px; }
+  .nav-link-text { display: none; }
+  .nav-logo { font-size: 1rem; }
+
+  /* HERO */
+  .hero { padding: 48px 16px 36px; }
+  .hero h1 { font-size: 2rem; }
+  .hero-names { font-size: 1.2rem; }
+
+  /* SECTIONS */
+  section { padding: 40px 0; }
+  .container, .container-sm { padding: 0 16px; }
+  .section-title { font-size: 1.6rem; }
+
+  /* GRIDS */
+  .gift-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .info-grid { grid-template-columns: 1fr; }
   .admin-summary { grid-template-columns: 1fr; }
-  .filter-tabs { padding: 16px; gap: 6px; }
-  .filter-tab { padding: 6px 12px; font-size: 0.8rem; }
-  .form-card { padding: 32px 20px; }
-  .item-detail-card { padding: 32px 20px; }
-  .hero { padding: 50px 20px 40px; }
-  .hero-info { gap: 20px; }
-  .nav-links { gap: 12px; }
+  .steps { grid-template-columns: 1fr; gap: 20px; }
+
+  /* FILTER TABS */
+  .filter-tabs { padding: 12px 16px; gap: 6px; overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
+  .filter-tab { padding: 6px 14px; font-size: 0.8rem; white-space: nowrap; flex-shrink: 0; }
+
+  /* ITEM DETAIL */
+  .item-detail-card { padding: 24px 16px; }
+  .item-detail-grid { grid-template-columns: 1fr; }
+  .item-detail-grid .gift-img-wrap { max-width: 280px; margin: 0 auto 16px; }
+
+  /* CART */
+  .cart-page { padding: 24px 16px; }
   .cart-item { gap: 10px; }
-  .cart-item-emoji { font-size: 1.5rem; }
-  .confirm-page { margin: 40px auto; }
+  .cart-item-emoji { font-size: 1.5rem; width: 36px; }
+  .cart-item-name { font-size: 0.9rem; }
+
+  /* AUTH FORMS */
+  .form-page { padding: 24px 16px; align-items: flex-start; padding-top: 32px; }
+  .form-card { padding: 28px 20px; }
+  .form-card h1 { font-size: 1.6rem; }
+
+  /* CONFIRM PAGE */
+  .confirm-page { margin: 24px auto; padding: 0 16px; }
+  .confirm-page h1 { font-size: 1.6rem; }
+
+  /* MEUS PEDIDOS / LISTA INTERNA */
+  .cart-page h1 { font-size: 1.6rem; }
+
+  /* CTA MODAL */
+  .cart-cta-box { padding: 28px 20px 36px; }
+
+  /* ADMIN */
+  .admin-page { padding: 24px 16px; }
 }
 
 @media (max-width: 400px) {
   .gift-grid { grid-template-columns: 1fr; }
   .gift-emoji { font-size: 2.2rem; }
+  .nav-logo { font-size: 0.95rem; }
 }
