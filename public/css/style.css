@@ -133,6 +133,16 @@ img { max-width: 100%; display: block; }
   gap: 8px;
 }
 
+.nav-account-mobile {
+  display: none; /* escondido no desktop */
+  font-size: 1.2rem;
+  text-decoration: none;
+  padding: 4px 6px;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+.nav-account-mobile:hover { background: var(--gold-light); }
+
 /* ── CONTAINER ──────────────────────────────────────────────── */
 .container {
   max-width: 1200px;
@@ -891,10 +901,11 @@ footer a { color: var(--gold-light); }
 }
 
 @media (max-width: 640px) {
-  /* NAV — no mobile: logo | carrinho | sair */
+  /* NAV — no mobile: logo | carrinho | 👤 | sair */
   .nav-inner { padding: 0 14px; gap: 8px; }
-  .nav-link-text { display: none; }           /* "Lista de Presentes" some */
-  .nav-user-desktop { display: none !important; } /* "Olá Ana" e "Meus Pedidos" somem */
+  .nav-link-text { display: none; }
+  .nav-user-desktop { display: none !important; }
+  .nav-account-mobile { display: inline-flex; align-items: center; } /* aparece no mobile */
   .nav-logo { font-size: 0.95rem; }
   .nav-links { gap: 8px; }
   .nav-cart { padding: 5px 12px; font-size: 0.78rem; }

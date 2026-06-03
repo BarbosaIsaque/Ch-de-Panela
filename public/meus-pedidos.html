@@ -42,9 +42,20 @@
   <div class="cart-page">
     <div style="margin-bottom:24px;">
       <a href="/lista.html" class="back-link">← Lista de Presentes</a>
-      <h1 style="font-size:2rem;">Meus Pedidos</h1>
-      <p style="color:var(--text-muted);font-size:0.9rem;">Aqui ficam os presentes que você já reservou e comprou.</p>
+      <h1 style="font-size:2rem;">Minha Conta</h1>
     </div>
+
+    <!-- Dados do usuário -->
+    <div id="user-info" style="background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:28px;display:none;">
+      <p style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-muted);font-weight:700;margin-bottom:12px;">Seus dados</p>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <div style="font-size:0.95rem;"><strong id="user-name"></strong></div>
+        <div style="font-size:0.88rem;color:var(--text-muted);" id="user-email"></div>
+      </div>
+    </div>
+
+    <h2 style="font-size:1.3rem;margin-bottom:16px;">Pedidos Recentes</h2>
+    <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:20px;">Aqui ficam os presentes que você reservou e comprou.</p>
 
     <div id="orders-content">
       <div class="skeleton" style="height:140px;border-radius:12px;margin-bottom:16px;"></div>
@@ -65,6 +76,11 @@
         window.location.href = '/login.html?redirect=/meus-pedidos.html';
         return false;
       }
+      // Exibe dados do usuário
+      const u = res.data;
+      document.getElementById('user-name').textContent = u.name || '';
+      document.getElementById('user-email').textContent = u.email || '';
+      document.getElementById('user-info').style.display = 'block';
       return true;
     }
 

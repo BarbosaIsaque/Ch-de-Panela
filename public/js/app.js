@@ -59,6 +59,7 @@
         navUser.innerHTML = `
           <span class="nav-user nav-user-desktop">Olá, <strong>${escapeHtml(data.name.split(' ')[0])}</strong></span>
           <a href="/meus-pedidos.html" class="btn btn-outline btn-sm nav-user-desktop">Meus Pedidos</a>
+          <a href="/meus-pedidos.html" class="nav-account-mobile" title="Minha Conta">👤</a>
           <button class="btn btn-outline btn-sm" id="logout-btn">Sair</button>
         `;
         document.getElementById('logout-btn').addEventListener('click', async () => {
