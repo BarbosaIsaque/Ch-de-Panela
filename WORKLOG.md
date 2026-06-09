@@ -14,6 +14,24 @@ here whenever you finish something, decide something, or find a bug.
 
 ---
 
+## [2026-06-09 17:35] — Claude — AbacatePay configurado e armado em produção
+- **What:** fechado o setup do PIX. (1) `ABACATEPAY_API_KEY` de **produção** nova gravada na Vercel
+  + redeploy → `pixEnabled:true` ao vivo. (2) Webhook **v1** criado no dashboard AbacatePay
+  (evento `billing.paid`) apontando p/ `https://cha.isana.ia.br/api/webhooks/abacatepay`; secret
+  novo (`openssl rand -hex 24`) gravado nos dois lados (campo Secret do AbacatePay + env
+  `ABACATEPAY_WEBHOOK_SECRET`/Production na Vercel, marcada Sensitive). (3) Verificado por curl:
+  secret errado → **401**; secret certo → passa a validação e cai em "Sessão não encontrada"
+  (esperado, sem sessão real) → prova que Vercel e AbacatePay batem e o parsing de
+  `billing.paid`/`externalId` funciona.
+- **Files:** nenhum (só env vars + dashboard). Deploy `cha-panelas-km8jpmm4u` READY.
+- **⚠️ PENDENTE (Isaque):**
+  1. **Rotacionar o `ABACATEPAY_WEBHOOK_SECRET`** — o valor usado no setup apareceu no chat do
+     Claude. Depois de validar o fluxo: `openssl rand -hex 24` → trocar no AbacatePay **e** na
+     Vercel (Production) → redeploy.
+  2. **Testar um PIX real ponta a ponta** (login → carrinho → Pagar com PIX → pagar → confirma
+     sozinho → Meus Pedidos / pedido pago / item reservado).
+  3. Depois do teste OK, **apagar os 4 convidados `Teste …`** do RSVP (tabela `pessoas`).
+
 ## [2026-06-09 16:20] — Claude — PIX QR AbacatePay vira o fluxo principal (InfinitePay → secundário)
 - **What:** o frontend nunca chamava o AbacatePay — o único botão "Pagar" do carrinho ia pro
   `/api/card-link` (InfinitePay). Reescrevi o checkout: botão **📱 Pagar com PIX** → `/api/pix-charge`
