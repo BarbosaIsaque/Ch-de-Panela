@@ -100,18 +100,102 @@
             ${items.length} ${items.length === 1 ? 'presente' : 'presentes'} selecionado${items.length === 1 ? '' : 's'}
           </p>
 
-          <button class="btn btn-primary btn-full" id="checkout-btn" onclick="checkout()">
-            💳 Pagar com Cartão, Débito ou PIX
+          <button class="btn btn-primary btn-full" id="pix-btn" onclick="payPix()">
+            📱 Pagar com PIX
           </button>
           <button class="btn btn-outline btn-full" id="cash-btn" onclick="checkoutCash()" style="margin-top:10px;">
             💵 Vou pagar em dinheiro no dia
           </button>
+          <p style="text-align:center;margin-top:14px;">
+            <a href="#" id="card-link" onclick="checkout(event)" style="font-size:0.8rem;color:var(--text-muted);text-decoration:underline;">
+              Prefere cartão de crédito/parcelado? Pague com cartão
+            </a>
+          </p>
         </div>
 
         <p style="text-align:center;font-size:0.75rem;color:var(--text-muted);margin-top:12px;">
-          Pagamento seguro via InfinitePay 🔒
+          PIX instantâneo via AbacatePay 🔒
         </p>
       `;
+    }
+
+    // ── PIX dinâmico (AbacatePay) — QR na própria página ──────────
+    let pixPollTimer = null;
+
+    async function payPix() {
+      const btn = document.getElementById('pix-btn');
+      if (!btn) return;
+      btn.disabled = true;
+      btn.textContent = 'Gerando QR Code...';
+
+      const res = await App.apiFetch('/api/pix-charge', { method: 'POST' });
+
+      if (!res.ok || !res.data.brCode) {
+        App.showToast(res.error || 'Não foi possível gerar o PIX. Tente novamente.', 'error');
+        btn.disabled = false;
+        btn.textContent = '📱 Pagar com PIX';
+        return;
+      }
+
+      showPixView(res.data);
+      startPixPolling(res.data.sessionId);
+    }
+
+    function showPixView({ brCode, brCodeBase64, total }) {
+      const content = document.getElementById('cart-content');
+      const qrSrc = (brCodeBase64 || '').startsWith('data:')
+        ? brCodeBase64
+        : `data:image/png;base64,${brCodeBase64}`;
+
+      content.innerHTML = `
+        <div class="cart-summary" style="text-align:center;max-width:420px;margin:0 auto;">
+          <h2 style="font-size:1.4rem;margin-bottom:4px;">Pague com PIX</h2>
+          <p style="color:var(--text-muted);margin-bottom:16px;">
+            Escaneie o QR Code ou copie o código. Total <strong>${App.formatPrice(total)}</strong>.
+          </p>
+
+          ${brCodeBase64 ? `<img src="${qrSrc}" alt="QR Code PIX" style="width:240px;height:240px;border-radius:12px;background:#fff;padding:8px;" />` : ''}
+
+          <div style="margin:18px 0;">
+            <textarea id="pix-code" readonly rows="3"
+              style="width:100%;font-size:0.8rem;padding:10px;border:1px solid var(--border,#e0d8cc);border-radius:8px;resize:none;background:#faf7f2;">${App.escapeHtml(brCode)}</textarea>
+            <button class="btn btn-primary btn-full" style="margin-top:8px;" onclick="copyPix()">📋 Copiar código PIX</button>
+          </div>
+
+          <p id="pix-status" style="font-size:0.9rem;color:var(--text-muted);">
+            ⏳ Aguardando o pagamento... a página confirma sozinha.
+          </p>
+
+          <button class="btn btn-outline btn-full" style="margin-top:10px;" onclick="cancelPix()">← Voltar ao carrinho</button>
+        </div>
+      `;
+    }
+
+    function copyPix() {
+      const ta = document.getElementById('pix-code');
+      if (!ta) return;
+      navigator.clipboard.writeText(ta.value)
+        .then(() => App.showToast('Código PIX copiado!', 'success'))
+        .catch(() => { ta.select(); document.execCommand('copy'); App.showToast('Código PIX copiado!', 'success'); });
+    }
+
+    function startPixPolling(sessionId) {
+      clearInterval(pixPollTimer);
+      pixPollTimer = setInterval(async () => {
+        const res = await App.apiFetch(`/api/pix-status?sessionId=${encodeURIComponent(sessionId)}`);
+        if (res.ok && res.data.paid) {
+          clearInterval(pixPollTimer);
+          const st = document.getElementById('pix-status');
+          if (st) st.innerHTML = '✅ Pagamento confirmado! Redirecionando...';
+          App.updateCartCount();
+          setTimeout(() => { window.location.href = '/meus-pedidos.html'; }, 1200);
+        }
+      }, 4000);
+    }
+
+    function cancelPix() {
+      clearInterval(pixPollTimer);
+      loadCart();
     }
 
     async function removeItem(itemId) {
@@ -131,11 +215,11 @@
 
     // Pagamento via InfinitePay (Cartão / Débito / PIX)
     // O carrinho NÃO é limpo aqui — só quando o webhook confirmar o pagamento
-    async function checkout() {
-      const btn = document.getElementById('checkout-btn');
-      if (!btn) return;
-      btn.disabled = true;
-      btn.textContent = 'Gerando link...';
+    async function checkout(ev) {
+      if (ev) ev.preventDefault();
+      clearInterval(pixPollTimer);
+      const link = document.getElementById('card-link');
+      if (link) link.textContent = 'Gerando link do cartão...';
 
       const res = await App.apiFetch('/api/card-link', { method: 'POST' });
 
@@ -143,8 +227,7 @@
         window.location.href = res.data.url;
       } else {
         App.showToast(res.error || 'Erro ao gerar link de pagamento', 'error');
-        btn.disabled = false;
-        btn.textContent = '💳 Pagar — PIX / Débito / Crédito';
+        if (link) link.textContent = 'Prefere cartão de crédito/parcelado? Pague com cartão';
       }
     }
 

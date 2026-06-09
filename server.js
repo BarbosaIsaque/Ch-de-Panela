@@ -14,7 +14,7 @@ const CONFIG = {
   abacate: {
     apiKey: process.env.ABACATEPAY_API_KEY || '',
     webhookSecret: process.env.ABACATEPAY_WEBHOOK_SECRET || '',
-    apiUrl: 'https://api.abacatepay.com/v2/transparents/create',
+    apiUrl: 'https://api.abacatepay.com/v1/pixQrCode/create',
     expiresIn: 1800, // 30 minutos
   },
   get pixEnabled() { return !!this.abacate.apiKey; },
@@ -440,17 +440,15 @@ app.post('/api/admin/orders/:id/cancel', requireAdmin, async (req, res) => {
 });
 
 // ── ABACATEPAY — criar cobrança PIX dinâmica ─────────────────
-async function createAbacatePixCharge({ amount, description, externalId, customer }) {
+async function createAbacatePixCharge({ amount, description, externalId }) {
   const { apiKey, apiUrl, expiresIn } = CONFIG.abacate;
+  // API v1/pixQrCode/create: corpo plano. customer exige name+cellphone+email+taxId
+  // (todos os 4); como não temos cellphone/taxId, omitimos o customer.
   const body = {
-    method: 'PIX',
-    data: {
-      amount: Math.round(amount * 100), // centavos
-      description,
-      expiresIn,
-      externalId: String(externalId),
-      ...(customer ? { customer } : {}),
-    },
+    amount: Math.round(amount * 100),           // centavos
+    expiresIn,                                   // segundos
+    description: String(description).slice(0, 37), // limite da API
+    metadata: { externalId: String(externalId) },
   };
   const resp = await fetch(apiUrl, {
     method: 'POST',
@@ -458,8 +456,11 @@ async function createAbacatePixCharge({ amount, description, externalId, custome
     body: JSON.stringify(body),
   });
   const json = await resp.json();
-  if (!resp.ok || !json.success) throw new Error(`AbacatePay ${resp.status}: ${JSON.stringify(json.error)}`);
-  return json.data; // { id, brCode, brCodeBase64, amount, expiresAt, status }
+  // Resposta: { data: {...}, error: null }
+  if (!resp.ok || json.error || !json.data) {
+    throw new Error(`AbacatePay ${resp.status}: ${JSON.stringify(json.error || json)}`);
+  }
+  return json.data; // { id, brCode, brCodeBase64, amount, status, expiresAt }
 }
 
 // ── PIX DINÂMICO — gerar QR code (AbacatePay) ────────────────
@@ -487,15 +488,11 @@ app.post('/api/pix-charge', requireAuth, async (req, res) => {
     .select('id').single();
   if (sessErr || !session) return fail(res, 500, 'Erro ao criar sessão');
 
-  const names = itemsData.map(i => i.name).join(', ');
-  const description = names.length > 100 ? names.slice(0, 97) + '…' : names;
-
   try {
     const charge = await createAbacatePixCharge({
       amount: total,
-      description: `Chá de Panelas — ${description}`,
+      description: 'Chá de Panelas Ana & Isaque', // ≤37 chars (limite da API)
       externalId: session.id,
-      customer: { name: req.user.name, email: req.user.email },
     });
 
     // Guardar charge id na sessão para lookup no webhook
@@ -530,20 +527,39 @@ app.get('/api/pix-status', requireAuth, async (req, res) => {
 // AbacatePay envia POST com evento transparent.completed
 // Valida via secret na query string + HMAC-SHA256 no header
 app.post('/api/webhooks/abacatepay', express.json(), async (req, res) => {
-  // Validar secret na query string
-  const { secret } = req.query;
-  if (CONFIG.abacate.webhookSecret && secret !== CONFIG.abacate.webhookSecret) {
+  // Secret na query string — o AbacatePay manda como ?webhookSecret=...
+  // (aceitamos ?secret= também, por compatibilidade com config antiga).
+  const qsSecret = req.query.webhookSecret || req.query.secret;
+  if (CONFIG.abacate.webhookSecret && qsSecret !== CONFIG.abacate.webhookSecret) {
     return res.status(401).json({ error: 'Secret inválido' });
   }
 
   const { event, data } = req.body || {};
-  if (event !== 'transparent.completed') return res.status(200).json({ ok: true, ignored: true });
+  // pixQrCode (v1) dispara `billing.paid`; mantemos transparent.completed por segurança.
+  const PAID_EVENTS = ['billing.paid', 'pixQrCode.paid', 'transparent.completed'];
+  if (event && !PAID_EVENTS.includes(event)) {
+    return res.status(200).json({ ok: true, ignored: true });
+  }
 
-  const externalId = data?.transparent?.externalId || data?.externalId;
-  if (!externalId) return res.status(400).json({ error: 'externalId ausente' });
+  // externalId pode vir em vários lugares conforme o tipo do evento.
+  const externalId =
+    data?.pixQrCode?.metadata?.externalId ||
+    data?.metadata?.externalId ||
+    data?.payment?.metadata?.externalId ||
+    data?.transparent?.externalId ||
+    data?.externalId || null;
+  // id da cobrança (pixQrCode) — usamos como fallback p/ achar a sessão via charge_id.
+  const chargeId = data?.pixQrCode?.id || data?.id || data?.payment?.id || null;
 
-  const { data: session } = await supabase.from('payment_sessions')
-    .select('*').eq('id', externalId).maybeSingle();
+  let session = null;
+  if (externalId) {
+    ({ data: session } = await supabase.from('payment_sessions')
+      .select('*').eq('id', externalId).maybeSingle());
+  }
+  if (!session && chargeId) {
+    ({ data: session } = await supabase.from('payment_sessions')
+      .select('*').eq('charge_id', chargeId).maybeSingle());
+  }
 
   if (!session) return res.status(400).json({ error: 'Sessão não encontrada' });
   if (session.used) return res.status(200).json({ ok: true, already: true });
@@ -562,8 +578,9 @@ app.post('/api/webhooks/abacatepay', express.json(), async (req, res) => {
     return res.status(400).json({ error: 'Erro ao criar pedido' });
   }
 
-  // Marcar como pago
-  const paidAmount = data?.transparent?.amount ? data.transparent.amount / 100 : session.total;
+  // Marcar como pago (amount vem em centavos em qualquer um dos formatos)
+  const cents = data?.pixQrCode?.amount ?? data?.payment?.amount ?? data?.transparent?.amount ?? data?.amount;
+  const paidAmount = cents ? cents / 100 : session.total;
   await supabase.from('orders').update({
     status: 'paid',
     payment_method: 'pix_abacatepay',
