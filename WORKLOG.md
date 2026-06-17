@@ -14,6 +14,43 @@ here whenever you finish something, decide something, or find a bug.
 
 ---
 
+## [2026-06-17 15:02] — Claude — 🍊 Novo item na lista: Espremedor Mondial Premium (R$100)
+- **What:** Isaque pediu pra adicionar um espremedor de frutas Mondial Premium à lista de presentes, valor R$100. Adicionado `id:79` (cat Cozinha, price 100.0) ao array de `lib/items.js`, fonte única servida por `/api/items`. Imagem do produto convertida (PNG→JPG) e salva em `public/img/itens/79.jpg`, seguindo o padrão dos demais.
+- **Files:** lib/items.js (novo item id:79), public/img/itens/79.jpg (nova imagem).
+- **Next / open:** deploy `vercel --prod` pra publicar em cha.isana.ia.br.
+
+## [2026-06-14] — Claude — ✉️ E-mail de agradecimento ao comprador (pós-pagamento)
+- **What:** Nova feature pedida pelo Isaque: quando o pagamento é confirmado, manda e-mail de agradecimento ("Sua compra foi concluída. Obrigado por nos ajudar a montar o nosso cantinho 💛"). Reusa a infra de e-mail que já existe (Brevo API HTTP, fallback SMTP/nodemailer). Novas funções `sendThankYouEmail(to, buyerName, items)` e `notifyThankYou(orderId)` (busca comprador via `orders→pessoas`, itens via `order_items`→`ITEMS`). Disparo em 3 pontos, todos só na confirmação real de pagamento: webhook AbacatePay (PIX), webhook InfinitePay (cartão), e endpoint admin `POST /api/admin/orders/:id/paid` (cobre dinheiro confirmado no evento). Todas as chamadas são best-effort (try/catch, não derrubam o webhook). Admin tem guarda contra reenvio (só agradece na transição pending→paid). Decisão do Isaque: agradecer SÓ quando pago, nunca na reserva.
+- **Files:** server.js (sendThankYouEmail, notifyThankYou, 3 call-sites).
+- **Verificação:** ✅ **TESTE REAL OK (15/06 ~02:08 UTC)** — Isaque comprou o item de teste (id 999, R$1,00) via InfinitePay/PIX. Webhook `/api/webhooks/infinitepay` logou "Pedido #11 criado e pago (R$ 1)", pedido marcado `paid`, e o e-mail de agradecimento chegou perfeito na caixa de entrada (Brevo, prod). Fluxo ponta a ponta confirmado.
+- **Limpeza pós-teste:** item 999 voltou pra `hidden:true` (redeploy chá `cha-panelas-jchy77xm7` → cha.isana.ia.br). Removidos do banco: pedido #11 (+ order_items/reserved_items), payment_session, login_code e a pessoa de teste 310 (origem=comprador) — base limpa de novo.
+- **Next / open:** (1) texto final do e-mail é dos noivos (placeholder atual pode ser ajustado a pedido); (2) PENDENTE separado: avaliar WhatsApp como canal alternativo (Isaque vai pensar) — anotado no HANDOFF do isana-core (PUNCH-LIST #6).
+
+## [2026-06-09 22:40] — Claude — 🌙 Dark mode: traços/linhas reapareceram
+- **What:** No escuro as linhas sumiam. Clareei `--border` (#383027→#4D4234) e `--gold-light` (#4A3F2A→#6E5C3C) no bloco `[data-theme="dark"]`, e dei dourado translúcido `rgba(212,185,126,0.45)` aos `.divider::before/::after` (o traço com 💐). Deploy prod.
+- **Files:** public/css/style.css
+- **Next / open:** —
+
+## [2026-06-09 22:10] — Claude — 🌙 Modo noturno (dark mode)
+- **What:** Dark mode em todo o chá. (1) `style.css` já usava CSS vars → adicionei bloco `[data-theme="dark"]` remapeando as vars (--cream/--card-bg/--text/--border etc.) + overrides pros `#fff` hardcoded (`.nav`, `.hero`, `.page-header`, `.filter-tabs/.filter-tab`, `.pix-box`, inputs, badges pastel). Regra `[style*="background:#fff"]:not(img)` cobre os fundos brancos inline do HTML **sem** escurecer o QR do PIX (que é `<img>` e precisa ficar branco pra escanear). (2) Script anti-flash inline no `<head>` das 9 páginas (lê `localStorage.theme`, senão `prefers-color-scheme`, e seta `data-theme` antes da pintura). (3) Botão de alternar (🌙/☀️) injetado no nav via `app.js` (`initThemeToggle`), persiste em `localStorage`.
+- **Files:** public/css/style.css, public/js/app.js, public/*.html (9, snippet no head)
+- **Next / open:** —
+
+## [2026-06-09 21:30] — Claude — +Sanduicheira (id 78) e −Kit panos rosa #2 (id 74)
+- **What:** Adicionei ao catálogo a **Sanduicheira Grill Electrolux** (`id:78`, cat Cozinha, R$99,90 contribuição simbólica média, imagem `/img/itens/78.jpg` que já estava na pasta). **Removi** o `Kit 5 panos de prato — rosa #2` (`id:74`) a pedido do Isaque — confirmei no banco que nenhum `order_items` referencia o 74 (remoção segura, sem quebrar pedidos). Catálogo: 77 itens visíveis. Build/`node --check` OK, deploy em prod (`cha-panelas-7ged0m15b`).
+- **Files:** lib/items.js
+- **Next / open:** —
+
+## [2026-06-09 20:20] — Claude — Item de teste oculto (id 999) para validar PIX
+- **What:** AbacatePay tem **mínimo de R$1,00** (API: `Expected number to be greater or equal to 100` centavos — 1 centavo não rola). Criei item de teste `id:999`, `hidden:true`, R$1,00 em `lib/items.js`. Filtrei `hidden` das rotas `/api/items` e `/api/items/stats` (não aparece na lista nem nos contadores), mas segue acessível por URL direta `/item.html?id=999`. Verificado em prod: GET /api/items/999 retorna; lista não contém id 999.
+- **Files:** lib/items.js, server.js (rotas items/stats e items)
+- **Next / open:** ⚠️ **REMOVER o item id:999 + o filtro hidden depois de validar o PIX** (ou deixar hidden se quiser manter pra testes futuros). Webhook secret ainda pendente de rotação.
+
+## [2026-06-09 20:05] — Claude — PIX corrigido: chave nova v1 + QR centralizado
+- **What:** PIX não gerava QR. Causa raiz: a `ABACATEPAY_API_KEY` antiga (`key_CGTNeR...`) foi **revogada** pela AbacatePay numa rotação de segurança → API retornava `401 Invalid or inactive API key`. Isaque gerou chave nova v1 no painel (`abc_prod_ssKw...`), atualizou na Vercel; testei via curl no endpoint v1 (`success:true`, devMode:false, brCode+QR ok) e fiz redeploy de produção. PIX confirmado gerando (R$69,90, QR + copia-e-cola na própria página). Em seguida centralizei o QR (estava colado à esquerda) com `display:block;margin:0 auto`.
+- **Files:** public/carrinho.html (linha ~157)
+- **Next / open:** (1) ⚠️ rotacionar `ABACATEPAY_WEBHOOK_SECRET` (vazou no chat) — sem isso a confirmação automática fica vulnerável. (2) testar fluxo completo: pagar PIX real → webhook `billing.paid` → pedido concluído. (3) apagar 4 convidados "Teste" de `pessoas`.
+
 ## [2026-06-09 17:35] — Claude — AbacatePay configurado e armado em produção
 - **What:** fechado o setup do PIX. (1) `ABACATEPAY_API_KEY` de **produção** nova gravada na Vercel
   + redeploy → `pixEnabled:true` ao vivo. (2) Webhook **v1** criado no dashboard AbacatePay
