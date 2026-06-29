@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Meus Pedidos — Chá de Panelas</title>
   <link rel="stylesheet" href="/css/style.css" />
+  <script>(function(){try{var t=localStorage.getItem("theme");if(t!=="dark"&&t!=="light"){t="light";}document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
   <style>
     .order-card {
       background: var(--card-bg);
@@ -159,13 +160,23 @@
               <span>${statusBadge}${pay ? `<span style="font-size:0.82rem;color:var(--text-muted);margin-left:8px;">${pay}</span>` : ''}</span>
               <strong style="color:var(--gold-dark);font-size:1.1rem;">${App.formatPrice(order.total)}</strong>
             </div>
-            ${isPaid ? '' : `
+            ${isPaid ? `
+              <p style="margin-top:14px;padding:12px 14px;background:rgba(180,140,60,0.08);border-radius:8px;font-size:0.9rem;color:var(--text-muted);text-align:center;">
+                💝 Muito obrigada pelo seu presente! Cada contribuição vira um pedacinho do nosso novo lar. — <strong data-config="nomes">Ana Clara &amp; Isaque</strong>
+              </p>
+            ` : `
               <a href="/confirmacao.html?orderId=${order.id}" class="btn btn-primary btn-full" style="margin-top:14px;">Finalizar pagamento</a>
               <button onclick="cancelOrder(${order.id})" class="btn btn-danger btn-full" style="margin-top:8px;">Cancelar reserva</button>
             `}
           </div>
         `;
       }).join('');
+
+      App.loadConfig().then(cfg => {
+        if (cfg && cfg.nomes) {
+          content.querySelectorAll('[data-config="nomes"]').forEach(el => { el.textContent = cfg.nomes; });
+        }
+      });
     }
 
     function toggleEdit() {

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Carrinho — Chá de Panelas</title>
   <link rel="stylesheet" href="/css/style.css" />
+  <script>(function(){try{var t=localStorage.getItem("theme");if(t!=="dark"&&t!=="light"){t="light";}document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
 </head>
 <body>
 
@@ -154,7 +155,7 @@
             Escaneie o QR Code ou copie o código. Total <strong>${App.formatPrice(total)}</strong>.
           </p>
 
-          ${brCodeBase64 ? `<img src="${qrSrc}" alt="QR Code PIX" style="width:240px;height:240px;border-radius:12px;background:#fff;padding:8px;" />` : ''}
+          ${brCodeBase64 ? `<img src="${qrSrc}" alt="QR Code PIX" style="width:240px;height:240px;border-radius:12px;background:#fff;padding:8px;display:block;margin:0 auto;" />` : ''}
 
           <div style="margin:18px 0;">
             <textarea id="pix-code" readonly rows="3"
@@ -185,10 +186,26 @@
         const res = await App.apiFetch(`/api/pix-status?sessionId=${encodeURIComponent(sessionId)}`);
         if (res.ok && res.data.paid) {
           clearInterval(pixPollTimer);
-          const st = document.getElementById('pix-status');
-          if (st) st.innerHTML = '✅ Pagamento confirmado! Redirecionando...';
           App.updateCartCount();
-          setTimeout(() => { window.location.href = '/meus-pedidos.html'; }, 1200);
+          content.innerHTML = `
+            <div class="cart-summary" style="text-align:center;max-width:440px;margin:0 auto;">
+              <div style="font-size:3rem;line-height:1;margin-bottom:10px;">💝</div>
+              <h2 style="font-size:1.5rem;margin-bottom:10px;">Pagamento confirmado!</h2>
+              <p style="color:var(--text-muted);margin-bottom:6px;font-size:1.02rem;">
+                Muito obrigada pelo seu presente! 🥰
+              </p>
+              <p style="color:var(--text-muted);margin-bottom:22px;font-size:0.95rem;">
+                Cada contribuição vira um pedacinho do nosso novo lar — e a gente fica muito feliz em ter você com a gente nessa. Com carinho, <strong data-config="nomes">Ana Clara &amp; Isaque</strong>.
+              </p>
+              <a href="/meus-pedidos.html" class="btn btn-primary btn-full">Ver meus pedidos</a>
+              <a href="/lista.html" class="btn btn-outline btn-full" style="margin-top:10px;">Voltar à lista de presentes</a>
+            </div>
+          `;
+          App.loadConfig().then(cfg => {
+            if (cfg && cfg.nomes) {
+              content.querySelectorAll('[data-config="nomes"]').forEach(el => { el.textContent = cfg.nomes; });
+            }
+          });
         }
       }, 4000);
     }

@@ -170,6 +170,78 @@ async function sendLoginCodeEmail(to, code) {
   return true;
 }
 
+// E-mail de agradecimento ao comprador — disparado SÓ quando o pagamento é confirmado.
+// `items` = array de objetos de lib/items.js (tem name/emoji). `buyerName` é opcional.
+async function sendThankYouEmail(to, buyerName, items) {
+  if (!to) return false;
+  const subject = 'Recebemos seu presente — muito obrigado! 💛';
+  const fromAddr = CONFIG.email.from || CONFIG.email.user;
+  const fromName = `Chá de Panelas — ${CONFIG.nomes}`;
+  const saudacao = buyerName ? `Oi, ${String(buyerName).split(' ')[0]}!` : 'Oi!';
+  const lista = (items || [])
+    .map((it) => `<li style="margin:4px 0;">${it.emoji ? `${it.emoji} ` : ''}${it.name}</li>`)
+    .join('');
+  const blocoItens = lista
+    ? `<p style="color:#3D2B1F;font-size:15px;line-height:1.6;margin:0 0 6px;">Seu presente:</p>
+       <ul style="color:#3D2B1F;font-size:15px;line-height:1.6;margin:0 0 18px;padding-left:20px;">${lista}</ul>`
+    : '';
+  const html = `
+    <div style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;background:#FDFBF8;padding:36px 28px;border-radius:14px;border:1px solid #ecdfce;">
+      <h1 style="color:#3D2B1F;font-size:22px;text-align:center;margin:0 0 2px;">Chá de Panelas</h1>
+      <p style="color:#9a8c7a;text-align:center;margin:0 0 24px;font-size:14px;">${CONFIG.nomes}</p>
+      <p style="color:#3D2B1F;font-size:15px;line-height:1.6;">${saudacao}</p>
+      <p style="color:#3D2B1F;font-size:15px;line-height:1.6;">Sua compra foi concluída com sucesso. Muito obrigado por nos ajudar a montar o nosso cantinho — cada presente vai fazer parte da nossa nova vida juntos. 💛</p>
+      ${blocoItens}
+      <p style="color:#9a8c7a;font-size:13px;text-align:center;line-height:1.6;margin-top:24px;">Com carinho,<br>${CONFIG.nomes}</p>
+    </div>`;
+
+  if (process.env.BREVO_API_KEY) {
+    const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': process.env.BREVO_API_KEY,
+        'content-type': 'application/json',
+        accept: 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { name: fromName, email: fromAddr },
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+      }),
+    });
+    if (!resp.ok) throw new Error(`Brevo API ${resp.status}: ${await resp.text()}`);
+    return true;
+  }
+
+  const transport = getMailTransport();
+  if (!transport) {
+    console.log(`\n  [AGRADECIMENTO - modo teste] -> ${to}\n`);
+    return false;
+  }
+  await transport.sendMail({ from: `"${fromName}" <${fromAddr}>`, to, subject, html });
+  return true;
+}
+
+// Busca comprador + itens de um pedido pago e dispara o e-mail de agradecimento.
+// Best-effort: nunca deve derrubar o webhook (try/catch no chamador).
+async function notifyThankYou(orderId) {
+  const { data: order } = await supabase.from('orders')
+    .select('pessoa_id, pessoas(nome, email)')
+    .eq('id', orderId)
+    .maybeSingle();
+  const pessoa = order?.pessoas || null;
+  if (!pessoa?.email) {
+    console.warn(`[Agradecimento] pedido #${orderId} sem e-mail do comprador — pulado`);
+    return;
+  }
+  const { data: rows } = await supabase.from('order_items')
+    .select('item_id').eq('order_id', orderId);
+  const items = (rows || []).map((r) => ITEMS.find((it) => it.id === r.item_id)).filter(Boolean);
+  await sendThankYouEmail(pessoa.email, pessoa.nome, items);
+  console.log(`[Agradecimento] enviado p/ ${pessoa.email} (pedido #${orderId})`);
+}
+
 // ──────────────────────────────────────────────────────────────
 // ROUTES
 // ──────────────────────────────────────────────────────────────
@@ -285,12 +357,15 @@ app.get('/api/config', (req, res) => ok(res, {
 
 app.get('/api/items/stats', async (req, res) => {
   const map = await getReservedMap();
-  return ok(res, { total: ITEMS.length, available: ITEMS.length - map.size, reserved: map.size });
+  const visible = ITEMS.filter(i => !i.hidden);
+  const reserved = visible.filter(i => map.has(i.id)).length;
+  return ok(res, { total: visible.length, available: visible.length - reserved, reserved });
 });
 
 app.get('/api/items', async (req, res) => {
   const map = await getReservedMap();
-  return ok(res, ITEMS.map(i => enrichItem(i, map)));
+  // itens hidden:true (ex.: item de teste id 999) não aparecem na lista — só por URL direta /item.html?id=...
+  return ok(res, ITEMS.filter(i => !i.hidden).map(i => enrichItem(i, map)));
 });
 
 app.get('/api/items/:id', async (req, res) => {
@@ -424,9 +499,14 @@ app.get('/api/admin/orders', requireAdmin, async (req, res) => {
 
 app.post('/api/admin/orders/:id/paid', requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id, 10);
-  const { data: order } = await supabase.from('orders').select('id').eq('id', id).maybeSingle();
+  const { data: order } = await supabase.from('orders').select('id, status').eq('id', id).maybeSingle();
   if (!order) return fail(res, 404, 'Pedido não encontrado');
+  const jaEstavaPago = order.status === 'paid';
   await supabase.from('orders').update({ status: 'paid' }).eq('id', id);
+  // Só agradece na transição pra pago (evita reenvio se o admin clicar de novo).
+  if (!jaEstavaPago) {
+    try { await notifyThankYou(id); } catch (e) { console.error('[Agradecimento]', e.message); }
+  }
   return ok(res, { orderId: id, status: 'paid' });
 });
 
@@ -592,6 +672,7 @@ app.post('/api/webhooks/abacatepay', express.json(), async (req, res) => {
   await supabase.from('payment_sessions').update({ used: true }).eq('id', session.id);
 
   console.log(`[AbacatePay] Pedido #${orderId} pago via PIX (R$ ${paidAmount})`);
+  try { await notifyThankYou(orderId); } catch (e) { console.error('[Agradecimento]', e.message); }
   return res.status(200).json({ ok: true, orderId });
 });
 
@@ -712,6 +793,7 @@ app.post('/api/webhooks/infinitepay', express.json(), async (req, res) => {
   await supabase.from('payment_sessions').update({ used: true }).eq('id', session.id);
 
   console.log(`[InfinitePay] Pedido #${orderId} criado e pago (R$ ${paidReais}) — sessão ${session.id}`);
+  try { await notifyThankYou(orderId); } catch (e) { console.error('[Agradecimento]', e.message); }
   return res.status(200).json({ ok: true, orderId });
 });
 

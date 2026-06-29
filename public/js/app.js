@@ -143,8 +143,42 @@
     document.body.appendChild(overlay);
   }
 
+  // ── Modo noturno 🌙 ──────────────────────────────────────────
+  function currentTheme() {
+    return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    try { localStorage.setItem('theme', theme); } catch {}
+    const btn = document.querySelector('.theme-toggle');
+    if (btn) {
+      const dark = theme === 'dark';
+      btn.textContent = dark ? '☀️' : '🌙';
+      btn.setAttribute('aria-label', dark ? 'Ativar modo claro' : 'Ativar modo noturno');
+      btn.setAttribute('title', dark ? 'Modo claro' : 'Modo noturno');
+    }
+  }
+
+  function initThemeToggle() {
+    const navInner = document.querySelector('.nav-inner');
+    if (!navInner || navInner.querySelector('.theme-toggle')) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'theme-toggle';
+    // insere antes da área de usuário pra ficar no canto direito do nav
+    const userArea = document.getElementById('nav-user-area');
+    if (userArea) navInner.insertBefore(btn, userArea);
+    else navInner.appendChild(btn);
+    btn.addEventListener('click', () => {
+      applyTheme(currentTheme() === 'dark' ? 'light' : 'dark');
+    });
+    applyTheme(currentTheme());
+  }
+
   // ── Init on DOM ready ────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', async () => {
+    initThemeToggle();
     await initNav();
     await fillConfigPlaceholders();
   });
